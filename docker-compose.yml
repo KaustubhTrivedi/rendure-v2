@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: rendure_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rendure-user
+      POSTGRES_PASSWORD: rendurepw@123
+      POSTGRES_DB: jobs_tracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - rendure_db_data:/var/lib/postgresql/data
+
+volumes:
+  rendure_db_data:
