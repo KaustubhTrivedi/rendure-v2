@@ -379,6 +379,26 @@ def run(
     agent_timeout = agent_timeout or float(os.getenv("AGENT_TIMEOUT_SECONDS", "300"))
 
     use_jd_text = bool(jd_text and jd_text.strip())
+    web_mode = bool(job_id)
+
+    def mark_web_job_error(reason: str) -> None:
+        if not web_mode or not job_id:
+            return
+        with _get_conn() as error_conn:
+            with error_conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE jobs SET status = 'error', updated_at = NOW() WHERE job_id = %s",
+                    (job_id,),
+                )
+            error_conn.commit()
+            _log_event(
+                error_conn,
+                job_id,
+                "pipeline_error",
+                "orchestrator",
+                detail=reason,
+                metadata={"reason": reason},
+            )
 
     # In web mode the API pre-creates the job row and the worker calls this
     # function with only job_id/profile_id. Resolve the persisted job_url
@@ -423,6 +443,7 @@ def run(
                 get = _requests.get(job_url, timeout=10, stream=True)
                 get.close()
                 if get.status_code >= 400:
+                    mark_web_job_error(f"URL unreachable (HTTP {get.status_code})")
                     _notify(
                         event_callback,
                         f"✗ URL unreachable (HTTP {get.status_code}). Pipeline not started.",
@@ -433,6 +454,7 @@ def run(
                     )
                     return
         except Exception as e:
+            mark_web_job_error(f"URL validation failed: {e}")
             _notify(
                 event_callback,
                 f"✗ URL validation failed: {e}\nPipeline not started.",
@@ -450,7 +472,10 @@ def run(
         with conn.cursor() as cur:
             if job_id:
                 # Web mode: job already created by the API router — just use it
-                pass
+                cur.execute(
+                    "UPDATE jobs SET status = 'found', updated_at = NOW() WHERE job_id = %s AND status = 'new'",
+                    (job_id,),
+                )
             elif use_jd_text:
                 # CLI JD-text mode: create a new record
                 job_id = str(uuid.uuid4())

@@ -4,9 +4,9 @@ services:
     container_name: rendure_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: rendure-user
+      POSTGRES_USER: rendure_user
       POSTGRES_PASSWORD: rendurepw@123
-      POSTGRES_DB: jobs_tracker
+      POSTGRES_DB: rendure_db
     ports:
       - "5432:5432"
     volumes:

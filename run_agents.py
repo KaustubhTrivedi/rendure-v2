@@ -34,6 +34,11 @@ def main() -> None:
         action="store_true",
         help="Print extended pipeline event details",
     )
+    parser.add_argument(
+        "--job-id",
+        default=None,
+        help="Use an existing pre-created jobs.job_id row",
+    )
 
     args = parser.parse_args()
 
@@ -47,6 +52,7 @@ def main() -> None:
         max_iterations=args.max_iterations,
         threshold=args.threshold,
         verbose=args.verbose,
+        job_id=args.job_id,
     )
 
 
