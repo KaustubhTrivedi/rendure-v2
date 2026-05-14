@@ -578,6 +578,7 @@ describe('jobs routes', () => {
 
   afterEach(async () => {
     resetResumeRendererForTests()
+    vi.useRealTimers()
     for (const dir of tempDirs) {
       await rm(dir, { recursive: true, force: true })
     }
@@ -749,15 +750,20 @@ describe('jobs routes', () => {
     await withPdfCacheDir(tempDirs)
     process.env.RESUME_PDF_RENDER_TIMEOUT_MS = '10'
     resetResumeRendererForTests()
+    vi.useFakeTimers()
     query.mockResolvedValueOnce({ rows: [{ latex_source: renderCvYaml }] } as never)
     mockChild()
 
-    const res = await jobs.request(`/job-123/resume/${PDF_VERSION_ID}/pdf`)
+    const responsePromise = jobs.request(`/job-123/resume/${PDF_VERSION_ID}/pdf`)
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalledTimes(1))
+    await vi.advanceTimersByTimeAsync(10)
+    const res = await responsePromise
 
     expect(res.status).toBe(504)
     const body = (await res.json()) as Record<string, unknown>
     expect(body.type).toBe('render_timeout')
     expect(body.detail).toBe('Resume PDF rendering timed out.')
+    vi.useRealTimers()
   })
 
   it('returns sanitized 500 when RenderCV fails', async () => {

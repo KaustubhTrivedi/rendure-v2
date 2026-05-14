@@ -134,8 +134,9 @@ export async function getOrRenderPdf(options: RenderPdfOptions): Promise<Buffer>
   const existing = inFlight.get(options.versionId)
   if (existing) return existing
 
+  const timeoutMs = renderTimeoutMs()
   const renderPromise = getLimiter()
-    .run(() => renderAndCachePdf(options, pdfPath))
+    .run(() => renderAndCachePdf(options, pdfPath, timeoutMs))
     .finally(() => {
       inFlight.delete(options.versionId)
     })
@@ -149,7 +150,7 @@ export function resetResumeRendererForTests(): void {
   limiter = null
 }
 
-async function renderAndCachePdf(options: RenderPdfOptions, pdfPath: string): Promise<Buffer> {
+async function renderAndCachePdf(options: RenderPdfOptions, pdfPath: string, timeoutMs: number): Promise<Buffer> {
   await mkdir(path.dirname(pdfPath), { recursive: true })
   const tempDir = await mkdtemp(path.join(os.tmpdir(), 'resume-render-'))
   const outputDir = path.join(tempDir, 'out')
@@ -157,7 +158,7 @@ async function renderAndCachePdf(options: RenderPdfOptions, pdfPath: string): Pr
   try {
     await mkdir(outputDir, { recursive: true })
     await writeFile(inputPath, options.source)
-    await runRenderCv(inputPath, outputDir)
+    await runRenderCv(inputPath, outputDir, timeoutMs)
     const outputPdf = await findRenderedPdf(outputDir)
     const rendered = await readFile(outputPdf)
     const tempCachePath = path.join(path.dirname(pdfPath), `.${options.versionId}.${Date.now()}.tmp`)
@@ -178,7 +179,7 @@ async function findRenderedPdf(outputDir: string): Promise<string> {
   return path.join(outputDir, pdf)
 }
 
-async function runRenderCv(inputPath: string, outputDir: string): Promise<void> {
+async function runRenderCv(inputPath: string, outputDir: string, timeoutMs: number): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     let settled = false
     let stderr = ''
@@ -190,7 +191,7 @@ async function runRenderCv(inputPath: string, outputDir: string): Promise<void> 
       settled = true
       child.kill()
       reject(new RenderCvTimeoutError())
-    }, renderTimeoutMs())
+    }, timeoutMs)
 
     child.stderr?.on('data', (chunk) => {
       stderr = (stderr + String(chunk)).slice(0, 1024)

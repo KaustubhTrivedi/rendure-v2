@@ -6,6 +6,7 @@ import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   RenderCvFailedError,
+  checkRenderCvAvailable,
   getOrRenderPdf,
   resetResumeRendererForTests,
 } from './resume-render.js'
@@ -95,6 +96,14 @@ describe('resume RenderCV helper', () => {
 
     expect(result).toEqual(cachedPdf)
     expect(spawnMock).not.toHaveBeenCalled()
+  })
+
+  it('reports unavailable when rendercv version probe fails', async () => {
+    const child = mockChild()
+    queueMicrotask(() => child.emit('close', 1))
+
+    await expect(checkRenderCvAvailable()).resolves.toBe(false)
+    expect(spawnMock).toHaveBeenCalledWith('rendercv', ['--version'])
   })
 
   it('rejects unsafe cache keys that are not UUIDs', async () => {

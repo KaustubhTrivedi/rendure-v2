@@ -360,7 +360,8 @@ jobs.get('/:id/resume/:version_id/pdf', async (c) => {
 
   try {
     const pdf = await getOrRenderPdf({ versionId, source: result.rows[0].latex_source })
-    return c.body(pdf, 200, {
+    const pdfBody = Uint8Array.from(pdf)
+    return c.body(pdfBody, 200, {
       'Content-Type': 'application/pdf',
       'Content-Length': String(pdf.byteLength),
       'Cache-Control': 'private, max-age=31536000, immutable',

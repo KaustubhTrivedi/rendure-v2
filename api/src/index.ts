@@ -5,8 +5,9 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import jobs from './routes/jobs.js'
 import profile from './routes/profile.js'
-import { loggerMiddleware } from './middleware/logger.js'
+import { logger, loggerMiddleware } from './middleware/logger.js'
 import { apiKeyMiddleware, assertApiKeyConfigured } from './middleware/apiKey.js'
+import { checkRenderCvAvailable } from './resume-render.js'
 
 const pkg = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf-8'),
@@ -40,6 +41,16 @@ app.route('/profile', profile)
 app.route('/jobs', jobs)
 
 if (process.env.NODE_ENV !== 'test') {
+  void checkRenderCvAvailable()
+    .then((available) => {
+      if (!available) {
+        logger.warn({ dependency: 'rendercv' }, 'RenderCV CLI unavailable; PDF resume downloads will return 503.')
+      }
+    })
+    .catch(() => {
+      logger.warn({ dependency: 'rendercv' }, 'RenderCV CLI unavailable; PDF resume downloads will return 503.')
+    })
+
   serve({
     fetch: app.fetch,
     port: 3002
