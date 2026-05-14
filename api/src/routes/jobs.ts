@@ -314,6 +314,28 @@ jobs.get('/:id/resumes', async (c) => {
 })
 
 /**
+ * GET /jobs/:id/resume/:version_id
+ *
+ * Return raw stored tailored source text for a resume version owned by the job.
+ */
+jobs.get('/:id/resume/:version_id', async (c) => {
+  const id = c.req.param('id')
+  const versionId = c.req.param('version_id')
+
+  const result = await pool.query(
+    `SELECT latex_source FROM resume_versions WHERE job_id = $1 AND version_id = $2`,
+    [id, versionId],
+  )
+  if (result.rows.length === 0) {
+    return httpError(c, 404, 'not_found', 'Resume version not found.')
+  }
+
+  return c.text(result.rows[0].latex_source, 200, {
+    'Content-Type': 'text/markdown; charset=utf-8',
+  })
+})
+
+/**
  * GET /jobs/:id/status
  *
  * Compact polling endpoint for the frontend.

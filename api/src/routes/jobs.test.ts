@@ -600,6 +600,32 @@ describe('jobs routes', () => {
     expect(query).toHaveBeenCalledTimes(1)
   })
 
+  it('returns tailored source with text markdown content type', async () => {
+    const source = 'cv:\n  name: Test\ndesign:\n  theme: sb2nov\n'
+    query.mockResolvedValueOnce({ rows: [{ latex_source: source }] } as never)
+
+    const res = await jobs.request('/job-123/resume/ver-123')
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('text/markdown; charset=utf-8')
+    await expect(res.text()).resolves.toBe(source)
+  })
+
+  it('returns uniform 404 when resume version is missing or belongs to another job', async () => {
+    query.mockResolvedValueOnce({ rows: [] } as never)
+
+    const res = await jobs.request('/job-123/resume/other-job-version')
+
+    expect(res.status).toBe(404)
+    const body = (await res.json()) as Record<string, unknown>
+    expect(body.code).toBe('not_found')
+    expect(body.error).toBe('Resume version not found.')
+    expect(query).toHaveBeenCalledWith(
+      `SELECT latex_source FROM resume_versions WHERE job_id = $1 AND version_id = $2`,
+      ['job-123', 'other-job-version'],
+    )
+  })
+
   it('creates a job, spawns the worker, and returns a polling URL', async () => {
     query
       .mockResolvedValueOnce({ rows: [] } as never)
