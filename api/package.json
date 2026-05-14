@@ -1,5 +1,6 @@
 {
   "name": "api",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file=.env src/index.ts",
@@ -10,7 +11,10 @@
   "dependencies": {
     "@hono/node-server": "^1.19.14",
     "hono": "^4.12.18",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "pino": "^9.14.0",
+    "pino-pretty": "^11.3.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^20.11.17",

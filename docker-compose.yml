@@ -11,6 +11,29 @@ services:
       - "5432:5432"
     volumes:
       - rendure_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rendure_user -d rendure_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    image: postgres:16-alpine
+    container_name: rendure_migrate
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: rendure_user
+      PGPASSWORD: rendurepw@123
+      PGDATABASE: rendure_db
+    volumes:
+      - ./database:/migrations:ro
+      - ./scripts/migrate.sh:/migrate.sh:ro
+    entrypoint: ["sh", "/migrate.sh"]
 
 volumes:
   rendure_db_data:

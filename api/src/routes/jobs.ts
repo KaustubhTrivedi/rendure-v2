@@ -1,7 +1,11 @@
 import { Hono } from 'hono'
 import { spawn } from 'child_process'
 import { resolve } from 'path'
+import { streamSSE } from 'hono/streaming'
 import { pool } from '../db.js'
+import { httpError } from '../errors.js'
+import { PIPELINE_SSE_EVENT, isTerminalStatus, toPipelineEventPayload, SSE_KEEPALIVE_COMMENT, SSE_KEEPALIVE_MS } from '../sse.js'
+import { listenForPipelineEvents } from '../pg-listener.js'
 
 const jobs = new Hono()
 
@@ -26,7 +30,7 @@ jobs.post('/', async (c) => {
   const body = await c.req.json().catch(() => null)
 
   if (!body || typeof body.url !== 'string' || !body.url.trim()) {
-    return c.json({ error: 'url is required and must be a non-empty string.' }, 400)
+    return httpError(c, 400, 'bad_request', 'url is required and must be a non-empty string.')
   }
 
   const url = body.url.trim()
@@ -35,7 +39,7 @@ jobs.post('/', async (c) => {
   try {
     new URL(url)
   } catch {
-    return c.json({ error: 'url must be a valid URL.' }, 400)
+    return httpError(c, 400, 'bad_request', 'url must be a valid URL.')
   }
 
   // Check for duplicate — the DB has a partial unique index on job_url
@@ -122,6 +126,146 @@ jobs.get('/', async (c) => {
 })
 
 /**
+ * GET /jobs/:id/events
+ *
+ * SSE stream of pipeline events for a job.
+ * Replays all prior events ordered by timestamp ASC, event_id ASC.
+ * Supports Last-Event-ID cursor for reconnection.
+ * Closes cleanly when a terminal row is replayed.
+ */
+jobs.get('/:id/events', async (c) => {
+  const id = c.req.param('id')
+
+  const jobResult = await pool.query(
+    `SELECT job_id, status FROM jobs WHERE job_id = $1`,
+    [id],
+  )
+  if (jobResult.rows.length === 0) {
+    return httpError(c, 404, 'not_found', 'Job not found.')
+  }
+
+  const lastEventId = c.req.header('Last-Event-ID')
+
+  let cursorClause = ''
+  let cursorParams: unknown[] = [id]
+  if (lastEventId) {
+    const cursorResult = await pool.query(
+      `SELECT event_id, timestamp FROM pipeline_events WHERE job_id = $1 AND event_id = $2`,
+      [id, lastEventId],
+    )
+    if (cursorResult.rows.length > 0) {
+      const cursor = cursorResult.rows[0]
+      cursorClause = `AND (timestamp, event_id) > ($2::timestamptz, $3::uuid)`
+      cursorParams = [id, cursor.timestamp, cursor.event_id]
+    }
+    // Unknown Last-Event-ID falls back to full replay per D-10
+  }
+
+  const replayResult = await pool.query(
+    `SELECT event_id, job_id, event_type, agent_name, from_status, to_status, model_used, detail, metadata, timestamp
+     FROM pipeline_events
+     WHERE job_id = $1 ${cursorClause}
+     ORDER BY timestamp ASC, event_id ASC`,
+    cursorParams,
+  )
+
+  return streamSSE(c, async (stream) => {
+    let lastSentTimestamp: string | null = null
+    let lastSentEventId: string | null = null
+    let closed = false
+    let keepalive: ReturnType<typeof setInterval> | undefined
+    let pipelineListener: Awaited<ReturnType<typeof listenForPipelineEvents>> | undefined
+    let flushing = false
+    let flushAgain = false
+
+    async function sendRowsAfterCursor() {
+      if (closed) return
+      if (flushing) { flushAgain = true; return }
+      flushing = true
+      flushAgain = false
+      try {
+        if (!lastSentTimestamp || !lastSentEventId) return
+        const result = await pool.query(
+          `SELECT event_id, job_id, event_type, agent_name, from_status, to_status, model_used, detail, metadata, timestamp
+           FROM pipeline_events
+           WHERE job_id = $1 AND (timestamp, event_id) > ($2::timestamptz, $3::uuid)
+           ORDER BY timestamp ASC, event_id ASC`,
+          [id, lastSentTimestamp, lastSentEventId],
+        )
+        for (const row of result.rows) {
+          if (closed) return
+          await stream.writeSSE({
+            id: row.event_id,
+            event: PIPELINE_SSE_EVENT,
+            data: JSON.stringify(toPipelineEventPayload(row)),
+          })
+          lastSentTimestamp = row.timestamp
+          lastSentEventId = row.event_id
+          if (isTerminalStatus(row.to_status)) {
+            closed = true
+            clearInterval(keepalive)
+            await pipelineListener?.close()
+            return
+          }
+        }
+      } catch {
+        // Stream may have closed
+      } finally {
+        flushing = false
+        if (flushAgain && !closed) await sendRowsAfterCursor()
+      }
+    }
+
+    // Emit replay rows
+    for (const row of replayResult.rows) {
+      await stream.writeSSE({
+        id: row.event_id,
+        event: PIPELINE_SSE_EVENT,
+        data: JSON.stringify(toPipelineEventPayload(row)),
+      })
+      lastSentTimestamp = row.timestamp
+      lastSentEventId = row.event_id
+      if (isTerminalStatus(row.to_status)) {
+        closed = true
+        return
+      }
+    }
+
+    // Start keepalive interval
+    keepalive = setInterval(() => {
+      void stream.write(SSE_KEEPALIVE_COMMENT)
+    }, SSE_KEEPALIVE_MS)
+
+    // Register listener BEFORE catch-up query to close the race window:
+    // rows inserted after replay but before active LISTEN registration
+    // are caught by the immediate catch-up below.
+    try {
+      pipelineListener = await listenForPipelineEvents((notification) => {
+        if (notification.job_id === id) void sendRowsAfterCursor()
+      })
+    } catch {
+      if (!closed) {
+        await stream.writeSSE({
+          event: 'stream_error',
+          data: JSON.stringify({ error: 'Stream failed.' }),
+        })
+      }
+      clearInterval(keepalive)
+      return
+    }
+
+    // Immediate catch-up query (closes replay → LISTEN race)
+    await sendRowsAfterCursor()
+
+    stream.onAbort(() => {
+      closed = true
+      clearInterval(keepalive)
+      void pipelineListener?.close()
+    })
+  })
+})
+
+/**
  * GET /jobs/:id/status
  *
  * Compact polling endpoint for the frontend.
@@ -145,7 +289,7 @@ jobs.get('/:id/status', async (c) => {
   )
 
   if (result.rows.length === 0) {
-    return c.json({ error: 'Job not found.' }, 404)
+    return httpError(c, 404, 'not_found', 'Job not found.')
   }
 
   return c.json(result.rows[0])
@@ -184,7 +328,7 @@ jobs.get('/:id', async (c) => {
   )
 
   if (jobResult.rows.length === 0) {
-    return c.json({ error: 'Job not found.' }, 404)
+    return httpError(c, 404, 'not_found', 'Job not found.')
   }
 
   const job = jobResult.rows[0]
