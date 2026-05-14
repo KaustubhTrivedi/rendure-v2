@@ -11,7 +11,7 @@
 --   The nonce is prepended to the ciphertext and the whole thing is base64-encoded.
 --   Encryption/decryption is handled in utils/crypto.py using PROFILE_ENCRYPTION_KEY.
 
-CREATE TABLE user_profile (
+CREATE TABLE IF NOT EXISTS user_profile (
     id                      INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
 
     -- Identity
@@ -51,6 +51,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_user_profile_updated_at ON user_profile;
 CREATE TRIGGER trg_user_profile_updated_at
 BEFORE UPDATE ON user_profile
 FOR EACH ROW

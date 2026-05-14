@@ -1,7 +1,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- allowed_transitions table
-CREATE TABLE allowed_transitions (
+CREATE TABLE IF NOT EXISTS allowed_transitions (
     from_status TEXT NOT NULL,
     to_status TEXT NOT NULL,
     PRIMARY KEY (from_status, to_status)
@@ -20,20 +20,23 @@ INSERT INTO allowed_transitions (from_status, to_status) VALUES
 ('qa_review', 'error'),
 ('qa_failed', 'tailoring'),
 ('qa_failed', 'low_match'),
-('qa_failed', 'error');
+('qa_failed', 'error')
+ON CONFLICT (from_status, to_status) DO NOTHING;
 
 -- base_resume table
-CREATE TABLE base_resume (
+CREATE TABLE IF NOT EXISTS base_resume (
     id SERIAL PRIMARY KEY,
     git_commit TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Init base resume
-INSERT INTO base_resume (git_commit) VALUES ('main');
+-- Init base resume (idempotent — only inserts if the table is empty)
+INSERT INTO base_resume (git_commit)
+SELECT 'main'
+WHERE NOT EXISTS (SELECT 1 FROM base_resume);
 
 -- jobs table
-CREATE TABLE jobs (
+CREATE TABLE IF NOT EXISTS jobs (
     job_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     job_url TEXT,
     company_name TEXT,
@@ -53,11 +56,11 @@ CREATE TABLE jobs (
 );
 
 -- Partial unique index: only deduplicate non-empty URLs (JD-text jobs have empty/null URL)
-CREATE UNIQUE INDEX jobs_url_unique ON jobs (job_url)
+CREATE UNIQUE INDEX IF NOT EXISTS jobs_url_unique ON jobs (job_url)
     WHERE job_url IS NOT NULL AND job_url != '';
 
 -- job_skills table
-CREATE TABLE job_skills (
+CREATE TABLE IF NOT EXISTS job_skills (
     job_id UUID REFERENCES jobs(job_id) ON DELETE CASCADE,
     skill TEXT NOT NULL,
     required BOOLEAN NOT NULL,
@@ -66,7 +69,7 @@ CREATE TABLE job_skills (
 
 -- resume_versions table
 -- git_branch and git_commit are nullable: resumes are now stored in DB directly.
-CREATE TABLE resume_versions (
+CREATE TABLE IF NOT EXISTS resume_versions (
     version_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     job_id UUID REFERENCES jobs(job_id) ON DELETE CASCADE,
     version_number INTEGER NOT NULL,
@@ -78,10 +81,18 @@ CREATE TABLE resume_versions (
 );
 
 -- Add foreign key constraint for active_resume_id on jobs table
-ALTER TABLE jobs ADD CONSTRAINT fk_active_resume FOREIGN KEY (active_resume_id) REFERENCES resume_versions(version_id) ON DELETE SET NULL;
+-- Idempotent FK add: PG doesn't support IF NOT EXISTS on ADD CONSTRAINT, so guard via catalog lookup.
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_active_resume'
+    ) THEN
+        ALTER TABLE jobs ADD CONSTRAINT fk_active_resume
+            FOREIGN KEY (active_resume_id) REFERENCES resume_versions(version_id) ON DELETE SET NULL;
+    END IF;
+END $$;
 
 -- qa_reviews table
-CREATE TABLE qa_reviews (
+CREATE TABLE IF NOT EXISTS qa_reviews (
     review_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     version_id UUID REFERENCES resume_versions(version_id) ON DELETE CASCADE,
     score NUMERIC(4, 3) NOT NULL,
@@ -97,7 +108,7 @@ CREATE TABLE qa_reviews (
 );
 
 -- pipeline_events table
-CREATE TABLE pipeline_events (
+CREATE TABLE IF NOT EXISTS pipeline_events (
     event_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     job_id UUID REFERENCES jobs(job_id) ON DELETE CASCADE,
     event_type TEXT NOT NULL,
@@ -113,6 +124,28 @@ CREATE TABLE pipeline_events (
 
 -- Triggers
 
+-- NOTIFY trigger for pipeline_events live delivery
+-- Mirror of database/003_pipeline_events_notify.sql
+CREATE OR REPLACE FUNCTION notify_pipeline_event()
+RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM pg_notify(
+        'pipeline_events',
+        json_build_object(
+            'job_id', NEW.job_id,
+            'event_id', NEW.event_id
+        )::text
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_notify_pipeline_event ON pipeline_events;
+CREATE TRIGGER trg_notify_pipeline_event
+AFTER INSERT ON pipeline_events
+FOR EACH ROW
+EXECUTE FUNCTION notify_pipeline_event();
+
 CREATE OR REPLACE FUNCTION update_iteration_count()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -127,6 +160,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_sync_iteration_count ON resume_versions;
 CREATE TRIGGER trg_sync_iteration_count
 AFTER INSERT ON resume_versions
 FOR EACH ROW
@@ -144,6 +178,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_sync_qa_score ON qa_reviews;
 CREATE TRIGGER trg_sync_qa_score
 AFTER INSERT ON qa_reviews
 FOR EACH ROW
@@ -152,7 +187,7 @@ EXECUTE FUNCTION update_qa_score();
 -- user_profile table
 -- Single-row, pluggable. No agent tables reference it by FK.
 -- See database/001_user_profile.sql for full commentary.
-CREATE TABLE user_profile (
+CREATE TABLE IF NOT EXISTS user_profile (
     id                      INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
     display_name            TEXT,
     openrouter_api_key_enc  TEXT,
@@ -180,6 +215,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_user_profile_updated_at ON user_profile;
 CREATE TRIGGER trg_user_profile_updated_at
 BEFORE UPDATE ON user_profile
 FOR EACH ROW
