@@ -17,6 +17,7 @@ tokens.json
 
 # Generated resume artifacts
 resume/resume.pdf
+api/.cache/resumes/
 output/
 
 # Dev Stuff

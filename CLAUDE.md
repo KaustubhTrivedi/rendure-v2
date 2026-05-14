@@ -541,14 +541,11 @@ commits are created during the pipeline.** Each iteration writes a new row:
 On retry iterations (QA fail → re-tailor), the Resume Tailor reads the previous
 version's content from `resume_versions.latex_source` rather than from disk.
 
-### PDF rendering (manual step)
+### PDF rendering
 
-The pipeline does not build the PDF. After the Orchestrator notifies the user that a
-resume is ready:
-
-1. Export the approved resume from the database (query `resume_versions` by `version_id`).
-2. Save to `resume/resume.md` and run RenderCV via Docker (see Section 10).
-3. Review the PDF and apply if satisfied.
+The pipeline does not render PDFs. The API can render a stored resume version on
+demand through `GET /jobs/:id/resume/:version_id/pdf` when the host has the
+`rendercv` CLI available.
 
 ---
 
@@ -556,24 +553,24 @@ resume is ready:
 
 ### The output format
 
-The Resume Tailor writes **Markdown** source files to `resume/resume.md` on the job
-branch. RenderCV renders Markdown to PDF inside a Docker devcontainer. The agent does
-not produce YAML or LaTeX directly.
-
-**Important:** The `latex_source` column in `resume_versions` stores Markdown content.
-The column name is a legacy artifact — do not rename it.
+The Resume Tailor stores the tailored resume source in `resume_versions.latex_source`.
+The column name is a legacy artifact — do not rename it. Current rows store RenderCV
+YAML. The raw source endpoint keeps the backward-compatible route and content contract:
+`GET /jobs/:id/resume/:version_id` returns the stored text with
+`Content-Type: text/markdown; charset=utf-8`.
 
 ### Rendering the PDF
 
-After checking out the job branch, run RenderCV via Docker:
+The API host must provide the `rendercv` CLI. PDF downloads invoke `rendercv render`
+synchronously through `api/src/resume-render.ts`; no Docker container is used on the
+Phase 3 request path.
 
-```bash
-docker run --rm \
-  -v "$(pwd)/resume":/resume \
-  rendercv/rendercv render /resume/resume.md
-```
+Runtime cache defaults to `api/.cache/resumes/` and stores immutable
+`<version_id>.pdf` files. The cache location and render behavior are configured with:
 
-This produces a PDF at `resume/resume.pdf`.
+- `RESUME_PDF_CACHE_DIR`
+- `RESUME_PDF_RENDER_CONCURRENCY`
+- `RESUME_PDF_RENDER_TIMEOUT_MS`
 
 ### Required Markdown sections
 

@@ -21,6 +21,19 @@ Open-source, self-hosted resume tailoring. The app no longer depends on third-pa
 - `OpenRouter` is required for resume parsing and tailoring.
 - `Jina` is optional and is only used when configured.
 
+## Resume Retrieval API
+
+Resume versions are available through the centralized API:
+
+- `GET /jobs/:id/resumes`
+- `GET /jobs/:id/resume/:version_id`
+- `GET /jobs/:id/resume/:version_id/pdf`
+
+All resume retrieval endpoints require `X-API-Key`. PDF downloads require the host
+`rendercv` CLI; repeated downloads are cached under `api/.cache/resumes/` by default.
+Set `RESUME_PDF_CACHE_DIR`, `RESUME_PDF_RENDER_CONCURRENCY`, and
+`RESUME_PDF_RENDER_TIMEOUT_MS` to tune the cache path and render behavior.
+
 ## Notes
 
 - Existing legacy auth-related database migrations are still present for compatibility with older local data, but the runtime no longer uses Clerk.
