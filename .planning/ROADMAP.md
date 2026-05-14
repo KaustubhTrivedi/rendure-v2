@@ -67,10 +67,14 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. `GET /jobs/:id/resumes` returns the full list of `resume_versions` rows for the job (version_id, version_number, created_at, tailoring_notes)
   2. `GET /jobs/:id/resume/:version_id` returns the tailored Markdown for the given version with `Content-Type: text/markdown`
-  3. `GET /jobs/:id/resume/:version_id/pdf` returns a rendered PDF (RenderCV via Docker) with `Content-Type: application/pdf`
+  3. `GET /jobs/:id/resume/:version_id/pdf` returns a rendered PDF (RenderCV via host CLI) with `Content-Type: application/pdf`
   4. Repeated PDF requests for the same `version_id` are served from disk cache without re-running RenderCV
   5. Unknown job or version IDs return 404 with a problem JSON
-**Plans**: To be defined in `/gsd-plan-phase 3`
+**Plans**: 3 plans
+Plans:
+- [ ] 03-01-PLAN.md — Resume version list and Markdown retrieval routes with auth inheritance and uniform 404s
+- [ ] 03-02-PLAN.md — RenderCV host-CLI render/cache helper with contract validation, timeout, concurrency cap, and dedupe
+- [ ] 03-03-PLAN.md — PDF endpoint integration, startup RenderCV probe, cache ignore, and host-CLI docs
 **UI hint**: no
 
 ### Phase 4: Telegram Bot Integration
