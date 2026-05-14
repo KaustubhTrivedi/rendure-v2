@@ -287,6 +287,33 @@ jobs.get('/:id/events', async (c) => {
 })
 
 /**
+ * GET /jobs/:id/resumes
+ *
+ * List stored resume versions for a job, ordered by iteration.
+ */
+jobs.get('/:id/resumes', async (c) => {
+  const id = c.req.param('id')
+
+  const jobResult = await pool.query(
+    `SELECT job_id FROM jobs WHERE job_id = $1`,
+    [id],
+  )
+  if (jobResult.rows.length === 0) {
+    return httpError(c, 404, 'not_found', 'Job not found.')
+  }
+
+  const result = await pool.query(
+    `SELECT version_id, version_number, created_at, tailoring_notes
+     FROM resume_versions
+     WHERE job_id = $1
+     ORDER BY version_number ASC`,
+    [id],
+  )
+
+  return c.json(result.rows)
+})
+
+/**
  * GET /jobs/:id/status
  *
  * Compact polling endpoint for the frontend.

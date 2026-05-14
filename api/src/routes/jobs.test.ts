@@ -518,6 +518,88 @@ describe('jobs routes', () => {
     mockChild()
   })
 
+  it('returns 401 without X-API-Key for resume list when routed through the mounted app', async () => {
+    const res = await app.request('/jobs/job-123/resumes')
+    expect(res.status).toBe(401)
+    const body = (await res.json()) as Record<string, unknown>
+    expect(body.code).toBe('unauthorized')
+  })
+
+  it('lists all resume versions for a job ordered by version_number', async () => {
+    query
+      .mockResolvedValueOnce({ rows: [{ job_id: 'job-123' }] } as never)
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            version_id: 'ver-1',
+            version_number: 1,
+            created_at: '2026-05-14T10:00:00.000Z',
+            tailoring_notes: 'Initial tailoring',
+          },
+          {
+            version_id: 'ver-2',
+            version_number: 2,
+            created_at: '2026-05-14T10:05:00.000Z',
+            tailoring_notes: 'Addressed QA gaps',
+          },
+        ],
+      } as never)
+
+    const res = await jobs.request('/job-123/resumes')
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual([
+      {
+        version_id: 'ver-1',
+        version_number: 1,
+        created_at: '2026-05-14T10:00:00.000Z',
+        tailoring_notes: 'Initial tailoring',
+      },
+      {
+        version_id: 'ver-2',
+        version_number: 2,
+        created_at: '2026-05-14T10:05:00.000Z',
+        tailoring_notes: 'Addressed QA gaps',
+      },
+    ])
+    expect(query).toHaveBeenNthCalledWith(
+      1,
+      `SELECT job_id FROM jobs WHERE job_id = $1`,
+      ['job-123'],
+    )
+    expect(query).toHaveBeenNthCalledWith(
+      2,
+      `SELECT version_id, version_number, created_at, tailoring_notes
+     FROM resume_versions
+     WHERE job_id = $1
+     ORDER BY version_number ASC`,
+      ['job-123'],
+    )
+  })
+
+  it('returns an empty list for an existing job with no resume versions', async () => {
+    query
+      .mockResolvedValueOnce({ rows: [{ job_id: 'job-123' }] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never)
+
+    const res = await jobs.request('/job-123/resumes')
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual([])
+  })
+
+  it('returns 404 when listing resumes for an unknown job', async () => {
+    query.mockResolvedValueOnce({ rows: [] } as never)
+
+    const res = await jobs.request('/missing/resumes')
+
+    expect(res.status).toBe(404)
+    const body = (await res.json()) as Record<string, unknown>
+    expect(body.code).toBe('not_found')
+    expect(body.error).toBe('Job not found.')
+    expect(query).toHaveBeenCalledTimes(1)
+  })
+
   it('creates a job, spawns the worker, and returns a polling URL', async () => {
     query
       .mockResolvedValueOnce({ rows: [] } as never)
