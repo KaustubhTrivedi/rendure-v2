@@ -69,7 +69,7 @@
 | ID | Description | Research Support |
 |----|-------------|------------------|
 | RESUME-01 | `GET /jobs/:id/resume/:version_id` returns tailored resume Markdown for an approved version | Context decisions D-10/D-17 broaden this to any existing version and raw `latex_source`; DB query must enforce `job_id + version_id`. [VERIFIED: `.planning/phases/03-resume-retrieval-and-pdf/03-CONTEXT.md`, `database/schema.sql`] |
-| RESUME-02 | `GET /jobs/:id/resume/:version_id/pdf` returns rendered PDF with `Content-Type: application/pdf` | Host `rendercv` CLI is locked, but RenderCV v2.8 documents YAML input and local Markdown smoke test failed; planner needs an early render-contract task. [CITED: https://docs.rendercv.com/user_guide/cli_reference/] [VERIFIED: `rendercv render --help`, local smoke test] |
+| RESUME-02 | `GET /jobs/:id/resume/:version_id/pdf` returns rendered PDF with `Content-Type: application/pdf` | Host `rendercv` CLI is locked. Current Resume Tailor output contract is RenderCV YAML in `resume_versions.latex_source`, starting with `cv:` and preserving root `design:`; older Markdown samples are legacy/non-current rows and should fail fast with sanitized 500 if requested. [CITED: https://docs.rendercv.com/user_guide/cli_reference/] [VERIFIED: `agents/resume_tailor.py`, `rendercv render --help`] |
 | RESUME-03 | PDF rendering results cached on disk and re-served for same `version_id` | Use `api/.cache/resumes/<version_id>.pdf`, atomic rename, in-process Promise dedupe, no negative caching. [VERIFIED: `03-CONTEXT.md`] |
 | RESUME-04 | `GET /jobs/:id/resumes` lists version metadata | Query `resume_versions` by `job_id`, returning `version_id`, `version_number`, `created_at`, `tailoring_notes`, ordered by version number. [VERIFIED: `database/schema.sql`, `03-CONTEXT.md`] |
 | RESUME-05 | Resume endpoints return 404 for unknown job/version IDs | Use existing `httpError(c, 404, 'not_found', ...)`; version lookups must include `WHERE job_id = $1 AND version_id = $2`. [VERIFIED: `api/src/errors.ts`, `03-CONTEXT.md`] |
@@ -79,9 +79,9 @@
 
 Phase 3 should be planned as two surfaces: simple read-only DB routes and a deeper render/cache helper. The API already mounts API-key middleware on `/jobs/*`, uses Hono route modules, uses `pool.query` directly, and returns RFC7807-hybrid JSON through `httpError()`. [VERIFIED: `api/src/index.ts`, `api/src/routes/jobs.ts`, `api/src/errors.ts`]
 
-The main planning risk is RenderCV input format. Current project context says `resume_versions.latex_source` is Markdown and the endpoint must return `text/markdown`, but the installed `rendercv v2.8` CLI says `rendercv render` renders YAML input, and a direct local render attempt with Markdown exited non-zero. [VERIFIED: `agents/resume_tailor.py`, `rendercv --version`, `rendercv render --help`, local smoke test] [CITED: https://docs.rendercv.com/user_guide/cli_reference/]
+The main planning risk, RenderCV input format, is now resolved for current data. `agents/resume_tailor.py` treats the base resume as RenderCV YAML and instructs the LLM to return raw YAML starting with `cv:` while preserving root `design:`. D-17 still requires the raw source endpoint to use `Content-Type: text/markdown; charset=utf-8` for backward-compatible endpoint naming/content contract, but the stored source for current rows is RenderCV YAML returned as stored text. Older Markdown samples are legacy/non-current data and PDF rendering should fail fast with sanitized 500 rather than silently converting or documenting an incomplete PDF deliverable. [VERIFIED: `agents/resume_tailor.py`, `rendercv --version`, `rendercv render --help`] [CITED: https://docs.rendercv.com/user_guide/cli_reference/]
 
-**Primary recommendation:** Plan an initial vertical slice that proves the render helper can turn one real `latex_source` value into a PDF using host `rendercv`; if the source is Markdown, the plan must either add a tested conversion step or explicitly fail PDF requests with sanitized 500 until upstream resume output is corrected. [VERIFIED: local smoke test] [ASSUMED]
+**Primary recommendation:** Plan an initial vertical slice that proves the render helper can turn representative current RenderCV YAML `latex_source` into a PDF using host `rendercv`. The helper/contract test must reject non-RenderCV legacy source before invoking RenderCV, and the PDF API must map that malformed legacy-row path to sanitized 500. [VERIFIED: `agents/resume_tailor.py`, local CLI] [ASSUMED]
 
 ## Project Constraints (from CLAUDE.md)
 
@@ -180,7 +180,7 @@ export async function getOrRenderPdf(versionId: string, source: string) {
 - **Checking `version_id` without `job_id`:** Leaks whether a version exists under another job; D-11 requires 404 for cross-job IDs. [VERIFIED: `03-CONTEXT.md`]
 - **Negative-cache render failures:** D-15 forbids caching failures. [VERIFIED: `03-CONTEXT.md`]
 - **Serving raw stderr to clients:** D-16 forbids raw stderr in HTTP bodies; log only truncated stderr. [VERIFIED: `03-CONTEXT.md`]
-- **Assuming Markdown renders with RenderCV:** Current RenderCV CLI expects YAML input; Markdown input failed locally. [VERIFIED: `rendercv render --help`, local smoke test] [CITED: https://docs.rendercv.com/user_guide/cli_reference/]
+- **Assuming legacy Markdown rows render with RenderCV:** Current RenderCV CLI expects YAML input; Markdown input failed locally. Current Resume Tailor rows should be RenderCV YAML starting with `cv:` and containing root `design:`. [VERIFIED: `agents/resume_tailor.py`, `rendercv render --help`, local smoke test] [CITED: https://docs.rendercv.com/user_guide/cli_reference/]
 
 ## Don't Hand-Roll
 
@@ -197,9 +197,9 @@ export async function getOrRenderPdf(versionId: string, source: string) {
 ## Common Pitfalls
 
 ### Pitfall 1: RenderCV Input Format Mismatch
-**What goes wrong:** The implementation writes raw Markdown to a temp `.md` file and calls `rendercv render`, but RenderCV exits non-zero. [VERIFIED: local smoke test]
-**Why it happens:** RenderCV v2.8 CLI documents `rendercv render` as rendering a YAML input file. [CITED: https://docs.rendercv.com/user_guide/cli_reference/] [VERIFIED: `rendercv render --help`]
-**How to avoid:** Plan a Wave 0 render-contract test using a real `latex_source` sample; if current source is Markdown, either add a tested conversion layer or require upstream resume output to become RenderCV YAML. [ASSUMED]
+**What goes wrong:** The implementation writes legacy Markdown to a temp `.md` file and calls `rendercv render`, but RenderCV exits non-zero. [VERIFIED: local smoke test]
+**Why it happens:** RenderCV v2.8 CLI documents `rendercv render` as rendering a YAML input file; current `agents/resume_tailor.py` therefore now requires raw RenderCV YAML output starting with `cv:` and preserving root `design:`. [CITED: https://docs.rendercv.com/user_guide/cli_reference/] [VERIFIED: `agents/resume_tailor.py`, `rendercv render --help`]
+**How to avoid:** Plan a Wave 0 render-contract test using representative current RenderCV YAML `latex_source`; fail fast on non-RenderCV source before invoking RenderCV and return sanitized 500 from the API for legacy malformed rows. [ASSUMED]
 **Warning signs:** `rendercv render` stderr mentions YAML parsing/validation and no PDF appears in the output folder. [VERIFIED: local smoke test]
 
 ### Pitfall 2: Cross-Job Version Leakage
@@ -265,17 +265,17 @@ Source: Phase context D-18. [VERIFIED: `03-CONTEXT.md`]
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | If current source is Markdown, a conversion layer or upstream format correction is required for RenderCV PDF generation. | Summary, Pitfalls | PDF endpoint may be unimplementable as specified without extra scope. |
+| A1 | Current source rows produced by Resume Tailor are RenderCV YAML starting with `cv:` and containing root `design:`; older Markdown samples are legacy/non-current data. | Summary, Pitfalls | Legacy rows return sanitized 500 from the PDF endpoint instead of rendering. |
 | A2 | Route handlers should stay thin and render/cache should be a deep helper module. | Architecture, Don't Hand-Roll | Minor maintainability risk; tests could still pass with inline implementation. |
 | A3 | Atomic rename from temp dir prevents partial PDF reads. | Common Pitfalls | Incorrect filesystem assumptions could leave race conditions. |
 | A4 | Renderer instance injection/reset is the best way to avoid test pollution. | Common Pitfalls | Tests may need a simpler reset strategy depending on final design. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Can the actual `resume_versions.latex_source` values be rendered by RenderCV v2.8?**
-   - What we know: Existing output sample is Markdown, `agents/resume_tailor.py` prompt asks for RenderCV YAML in places, and RenderCV CLI expects YAML input. [VERIFIED: `output/.../resume.md`, `agents/resume_tailor.py`, local CLI]
-   - What's unclear: The live DB may contain Markdown or YAML depending on when rows were produced. [ASSUMED]
-   - Recommendation: Planner should add first task: create a fixture from a real/current resume version and prove render success or failure before implementing cache details. [ASSUMED]
+   - Resolution: Phase 3 will require PDF rendering from current RenderCV YAML stored in `resume_versions.latex_source`. The current `agents/resume_tailor.py` prompt treats the base resume as RenderCV YAML and requires raw output starting with `cv:` while preserving root `design:`. [VERIFIED: `agents/resume_tailor.py`]
+   - Legacy data handling: Older Markdown samples are legacy/non-current rows. The render helper/contract test must fail fast on non-RenderCV source, and the PDF API should return sanitized HTTP 500 with `type: 'render_failed'` for legacy malformed rows. [VERIFIED: local Markdown smoke test] [ASSUMED]
+   - Planning decision: The PDF endpoint remains fully deliverable for current YAML rows; Plan 02 must include a representative RenderCV YAML fixture beginning with `cv:` and including root `design:` and must prove host `rendercv` can render it in the gated contract test. [ASSUMED]
 
 2. **Should `Content-Disposition` be inline or attachment?**
    - What we know: D-18 leaves it to planning and defaults inline. [VERIFIED: `03-CONTEXT.md`]
