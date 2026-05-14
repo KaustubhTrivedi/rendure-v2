@@ -19,7 +19,7 @@ The existing Hono/TypeScript backend (`api/`) already handles job submission, li
 - Decimal phases (e.g., 2.1): Urgent insertions via `/gsd-insert-phase`
 
 - [x] **Phase 1: Auth & Profile Completion** — API key middleware, PATCH /profile, error/logging conventions
-- [ ] **Phase 2: SSE Pipeline Progress** — Real-time GET /jobs/:id/events with replay, keepalive, terminal-state close
+- [x] **Phase 2: SSE Pipeline Progress** — Real-time GET /jobs/:id/events with replay, keepalive, terminal-state close
 - [ ] **Phase 3: Resume Retrieval & PDF** — Markdown endpoints, RenderCV PDF rendering with disk cache
 - [ ] **Phase 4: Telegram Bot Integration** — Webhook receiver, signed-update verification, terminal-state notifications
 
