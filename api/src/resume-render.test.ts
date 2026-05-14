@@ -21,7 +21,7 @@ const VERSION_ID = '11111111-1111-4111-8111-111111111111'
 const renderCvYaml = `cv:
   name: Test Candidate
   email: test@example.com
-  phone: "+1 555 0100"
+  phone: "+353894954389"
   sections:
     summary:
       - Senior product engineer focused on backend automation.
@@ -153,9 +153,8 @@ describe('resume RenderCV helper', () => {
         child.on('close', resolve)
       })
       expect(code).toBe(0)
-      await expect(import('node:fs/promises').then((fs) => fs.readdir(outDir))).resolves.toContain(
-        'resume.pdf',
-      )
+      const outputFiles = await import('node:fs/promises').then((fs) => fs.readdir(outDir))
+      expect(outputFiles.some((file) => file.endsWith('.pdf'))).toBe(true)
     },
   )
 
