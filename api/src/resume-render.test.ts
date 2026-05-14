@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { access, mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { EventEmitter } from 'node:events'
@@ -39,7 +39,7 @@ design:
   theme: classic
 `
 
-function mockChild() {
+function mockChild(setAsSpawnReturn = true) {
   const child = new EventEmitter() as EventEmitter & {
     stdout: EventEmitter
     stderr: EventEmitter
@@ -48,7 +48,9 @@ function mockChild() {
   child.stdout = new EventEmitter()
   child.stderr = new EventEmitter()
   child.kill = vi.fn()
-  spawnMock.mockReturnValue(child as ReturnType<typeof spawn>)
+  if (setAsSpawnReturn) {
+    spawnMock.mockReturnValue(child as ReturnType<typeof spawn>)
+  }
   return child
 }
 
@@ -157,5 +159,121 @@ describe('resume RenderCV helper', () => {
       RenderCvFailedError,
     )
     expect(spawnMock).not.toHaveBeenCalled()
+  })
+
+  it('renders a cache miss into a per-request temp directory and atomically caches the PDF', async () => {
+    const cacheDir = await withTempCacheDir()
+    tempDirs.push(cacheDir)
+    const renderedPdf = Buffer.from('%PDF freshly rendered')
+    let tempInputPath = ''
+    let outputDir = ''
+
+    spawnMock.mockImplementation(((_cmd, args) => {
+      const child = mockChild(false)
+      tempInputPath = String(args?.[1])
+      outputDir = String(args?.[3])
+      queueMicrotask(async () => {
+        expect(await readFile(tempInputPath, 'utf8')).toBe(renderCvYaml)
+        await writeFile(path.join(outputDir, 'resume.pdf'), renderedPdf)
+        child.emit('close', 0)
+      })
+      return child as ReturnType<typeof spawn>
+    }) as typeof spawn)
+
+    const result = await getOrRenderPdf({ versionId: VERSION_ID, source: renderCvYaml })
+
+    expect(result).toEqual(renderedPdf)
+    await expect(readFile(path.join(cacheDir, `${VERSION_ID}.pdf`))).resolves.toEqual(renderedPdf)
+    await expect(access(tempInputPath)).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(spawnMock).toHaveBeenCalledWith(
+      'rendercv',
+      ['render', tempInputPath, '--output-folder', outputDir],
+      expect.objectContaining({ stdio: ['ignore', 'pipe', 'pipe'] }),
+    )
+  })
+
+  it('two concurrent misses for the same version_id invoke RenderCV once', async () => {
+    const cacheDir = await withTempCacheDir()
+    tempDirs.push(cacheDir)
+    const renderedPdf = Buffer.from('%PDF shared render')
+    let child: ReturnType<typeof mockChild>
+    let outputDir = ''
+
+    spawnMock.mockImplementation(((_cmd, args) => {
+      child = mockChild(false)
+      outputDir = String(args?.[3])
+      return child as ReturnType<typeof spawn>
+    }) as typeof spawn)
+
+    const first = getOrRenderPdf({ versionId: VERSION_ID, source: renderCvYaml })
+    const second = getOrRenderPdf({ versionId: VERSION_ID, source: renderCvYaml })
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalledTimes(1))
+    await writeFile(path.join(outputDir, 'resume.pdf'), renderedPdf)
+    child!.emit('close', 0)
+
+    await expect(first).resolves.toEqual(renderedPdf)
+    await expect(second).resolves.toEqual(renderedPdf)
+    expect(spawnMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('limits concurrent renders using RESUME_PDF_RENDER_CONCURRENCY', async () => {
+    const cacheDir = await withTempCacheDir()
+    tempDirs.push(cacheDir)
+    process.env.RESUME_PDF_RENDER_CONCURRENCY = '1'
+    resetResumeRendererForTests()
+    const otherVersionId = '22222222-2222-4222-8222-222222222222'
+    const children: ReturnType<typeof mockChild>[] = []
+    const outputDirs: string[] = []
+
+    spawnMock.mockImplementation(((_cmd, args) => {
+      const child = mockChild(false)
+      children.push(child)
+      outputDirs.push(String(args?.[3]))
+      return child as ReturnType<typeof spawn>
+    }) as typeof spawn)
+
+    const first = getOrRenderPdf({ versionId: VERSION_ID, source: renderCvYaml })
+    const second = getOrRenderPdf({ versionId: otherVersionId, source: renderCvYaml })
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalledTimes(1))
+
+    await writeFile(path.join(outputDirs[0], 'resume.pdf'), Buffer.from('%PDF first'))
+    children[0].emit('close', 0)
+    await expect(first).resolves.toEqual(Buffer.from('%PDF first'))
+
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalledTimes(2))
+    await writeFile(path.join(outputDirs[1], 'resume.pdf'), Buffer.from('%PDF second'))
+    children[1].emit('close', 0)
+    await expect(second).resolves.toEqual(Buffer.from('%PDF second'))
+  })
+
+  it('times out long RenderCV processes', async () => {
+    const cacheDir = await withTempCacheDir()
+    tempDirs.push(cacheDir)
+    process.env.RESUME_PDF_RENDER_TIMEOUT_MS = '25'
+    vi.useFakeTimers()
+    const child = mockChild()
+
+    const promise = getOrRenderPdf({ versionId: VERSION_ID, source: renderCvYaml })
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalledTimes(1))
+    await vi.advanceTimersByTimeAsync(25)
+
+    await expect(promise).rejects.toMatchObject({ name: 'RenderCvTimeoutError' })
+    expect(child.kill).toHaveBeenCalled()
+    await expect(stat(path.join(cacheDir, `${VERSION_ID}.pdf`))).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('sanitizes RenderCV stderr on failure', async () => {
+    const cacheDir = await withTempCacheDir()
+    tempDirs.push(cacheDir)
+    const child = mockChild()
+
+    const promise = getOrRenderPdf({ versionId: VERSION_ID, source: renderCvYaml })
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalledTimes(1))
+    child.stderr.emit('data', Buffer.from('SECRET_STDERR_TOKEN'))
+    child.emit('close', 1)
+
+    await expect(promise).rejects.toThrow(RenderCvFailedError)
+    await expect(promise).rejects.not.toThrow(/SECRET_STDERR_TOKEN/)
+    await expect(stat(path.join(cacheDir, `${VERSION_ID}.pdf`))).rejects.toMatchObject({ code: 'ENOENT' })
   })
 })
