@@ -174,9 +174,12 @@ jobs.get('/:id/events', async (c) => {
     let lastSentEventId: string | null = null
     let closed = false
     let keepalive: ReturnType<typeof setInterval> | undefined
-    let pipelineListener: Awaited<ReturnType<typeof listenForPipelineEvents>> | undefined
+    // listener is the PipelineEventListener returned by listenForPipelineEvents
+    let listener: Awaited<ReturnType<typeof listenForPipelineEvents>> | undefined
     let flushing = false
     let flushAgain = false
+    let resolveClose: () => void
+    const closePromise = new Promise<void>((r) => { resolveClose = r })
 
     async function sendRowsAfterCursor() {
       if (closed) return
@@ -184,14 +187,21 @@ jobs.get('/:id/events', async (c) => {
       flushing = true
       flushAgain = false
       try {
-        if (!lastSentTimestamp || !lastSentEventId) return
-        const result = await pool.query(
-          `SELECT event_id, job_id, event_type, agent_name, from_status, to_status, model_used, detail, metadata, timestamp
-           FROM pipeline_events
-           WHERE job_id = $1 AND (timestamp, event_id) > ($2::timestamptz, $3::uuid)
-           ORDER BY timestamp ASC, event_id ASC`,
-          [id, lastSentTimestamp, lastSentEventId],
-        )
+        const result = lastSentTimestamp && lastSentEventId
+          ? await pool.query(
+              `SELECT event_id, job_id, event_type, agent_name, from_status, to_status, model_used, detail, metadata, timestamp
+               FROM pipeline_events
+               WHERE job_id = $1 AND (timestamp, event_id) > ($2::timestamptz, $3::uuid)
+               ORDER BY timestamp ASC, event_id ASC`,
+              [id, lastSentTimestamp, lastSentEventId],
+            )
+          : await pool.query(
+              `SELECT event_id, job_id, event_type, agent_name, from_status, to_status, model_used, detail, metadata, timestamp
+               FROM pipeline_events
+               WHERE job_id = $1
+               ORDER BY timestamp ASC, event_id ASC`,
+              [id],
+            )
         for (const row of result.rows) {
           if (closed) return
           await stream.writeSSE({
@@ -204,7 +214,9 @@ jobs.get('/:id/events', async (c) => {
           if (isTerminalStatus(row.to_status)) {
             closed = true
             clearInterval(keepalive)
-            await pipelineListener?.close()
+            // listener.close() cleans up the pg LISTEN subscription
+            if (listener) await listener.close()
+            resolveClose!()
             return
           }
         }
@@ -227,6 +239,7 @@ jobs.get('/:id/events', async (c) => {
       lastSentEventId = row.event_id
       if (isTerminalStatus(row.to_status)) {
         closed = true
+        // Terminal during replay — no listener yet, return early
         return
       }
     }
@@ -240,7 +253,7 @@ jobs.get('/:id/events', async (c) => {
     // rows inserted after replay but before active LISTEN registration
     // are caught by the immediate catch-up below.
     try {
-      pipelineListener = await listenForPipelineEvents((notification) => {
+      listener = await listenForPipelineEvents((notification) => {
         if (notification.job_id === id) void sendRowsAfterCursor()
       })
     } catch {
@@ -251,17 +264,25 @@ jobs.get('/:id/events', async (c) => {
         })
       }
       clearInterval(keepalive)
+      resolveClose!()
       return
     }
 
     // Immediate catch-up query (closes replay → LISTEN race)
     await sendRowsAfterCursor()
 
+    // If catch-up already closed the stream (terminal row), return
+    if (closed) return
+
     stream.onAbort(() => {
       closed = true
       clearInterval(keepalive)
-      void pipelineListener?.close()
+      void listener?.close()
+      resolveClose!()
     })
+
+    // Wait until the stream is closed (terminal row or client abort)
+    await closePromise
   })
 })
 

@@ -33,20 +33,29 @@ function mockListener() {
   let capturedCallback: ((n: PipelineNotification) => void) | null = null
   const closeFn = vi.fn().mockResolvedValue(undefined)
   const listener: PipelineEventListener = { close: closeFn }
+  let resolveRegistered: () => void
+  const registeredPromise = new Promise<void>((r) => { resolveRegistered = r })
   listenForPipelineEventsMock.mockImplementation(async (cb) => {
     capturedCallback = cb
+    resolveRegistered!()
     return listener
   })
   return {
+    /** Wait for the listener to be registered, then fire a notification. */
+    triggerAfterRegistered: async (notification: PipelineNotification) => {
+      await registeredPromise
+      if (capturedCallback) capturedCallback(notification)
+    },
     trigger: (notification: PipelineNotification) => {
       if (capturedCallback) capturedCallback(notification)
     },
+    waitForRegistered: () => registeredPromise,
     close: closeFn,
     listener,
   }
 }
 
-/** Drain a ReadableStream<Uint8Array> to a string. */
+/** Drain a ReadableStream<Uint8Array> to a string until done or cancelled. */
 async function drainStream(body: ReadableStream<Uint8Array> | null): Promise<string> {
   if (!body) return ''
   const reader = body.getReader()
@@ -57,6 +66,29 @@ async function drainStream(body: ReadableStream<Uint8Array> | null): Promise<str
     if (done) break
     text += decoder.decode(value, { stream: true })
   }
+  return text
+}
+
+/**
+ * Read chunks from a stream until a condition is met, then cancel.
+ * Used for non-terminal streams that stay open indefinitely.
+ */
+async function readStreamUntil(
+  body: ReadableStream<Uint8Array> | null,
+  condition: (text: string) => boolean,
+  maxChunks = 50,
+): Promise<string> {
+  if (!body) return ''
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let text = ''
+  for (let i = 0; i < maxChunks; i++) {
+    const { done, value } = await reader.read()
+    if (done) break
+    text += decoder.decode(value, { stream: true })
+    if (condition(text)) break
+  }
+  await reader.cancel()
   return text
 }
 
@@ -156,7 +188,8 @@ describe('GET /jobs/:id/events (SSE)', () => {
     const res = await jobs.request('/job-1/events')
     expect(res.status).toBe(200)
 
-    const text = await drainStream(res.body)
+    // Stream stays open (non-terminal); read until we have both replay rows
+    const text = await readStreamUntil(res.body, (t) => t.includes('"event_id":"e2"'))
     const dataLines = text.split('\n').filter((l) => l.startsWith('data:'))
     expect(dataLines).toHaveLength(2)
     const first = JSON.parse(dataLines[0].slice(5))
@@ -184,7 +217,8 @@ describe('GET /jobs/:id/events (SSE)', () => {
     })
     expect(res.status).toBe(200)
 
-    const text = await drainStream(res.body)
+    // Stream stays open (non-terminal); read until we have e2
+    const text = await readStreamUntil(res.body, (t) => t.includes('"event_id":"e2"'))
     expect(text).toContain('e2')
     expect(text).not.toContain('e1')
   })
@@ -208,7 +242,8 @@ describe('GET /jobs/:id/events (SSE)', () => {
     })
     expect(res.status).toBe(200)
 
-    const text = await drainStream(res.body)
+    // Stream stays open (non-terminal); read until we have e1
+    const text = await readStreamUntil(res.body, (t) => t.includes('"event_id":"e1"'))
     expect(text).toContain('e1')
   })
 
@@ -261,6 +296,219 @@ describe('GET /jobs/:id/events (SSE)', () => {
     // Stream should still be open (non-terminal replay); client-abort will close it
     // We confirm keepalive constants are correct
     expect(SSE_KEEPALIVE_COMMENT).toContain(': keepalive')
+  })
+})
+
+describe('GET /jobs/:id/events (SSE live delivery)', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mockChild()
+  })
+
+  it('delivers a live event when pg notification fires for the same job_id', async () => {
+    const { triggerAfterRegistered } = mockListener()
+
+    // Use a terminal live row so the stream closes naturally after delivery
+    const liveRow = {
+      event_id: 'e2',
+      job_id: 'job-1',
+      event_type: 'status_change',
+      agent_name: null,
+      from_status: 'qa_review',
+      to_status: 'approved',
+      model_used: null,
+      detail: null,
+      metadata: null,
+      timestamp: '2026-01-01T00:00:02Z',
+    }
+
+    vi.mocked(pool.query)
+      // job lookup
+      .mockResolvedValueOnce({ rows: [{ job_id: 'job-1', status: 'qa_review' }] } as never)
+      // initial replay: one non-terminal row
+      .mockResolvedValueOnce({
+        rows: [{ event_id: 'e1', job_id: 'job-1', event_type: 'status_change', agent_name: null, from_status: 'new', to_status: 'found', model_used: null, detail: null, metadata: null, timestamp: '2026-01-01T00:00:01Z' }],
+      } as never)
+      // immediate catch-up: no new rows
+      .mockResolvedValueOnce({ rows: [] } as never)
+      // notification-triggered cursor query: live terminal row
+      .mockResolvedValueOnce({ rows: [liveRow] } as never)
+
+    const res = await jobs.request('/job-1/events')
+    expect(res.status).toBe(200)
+
+    // Fire notification after listener is confirmed registered — emits terminal row and closes
+    await triggerAfterRegistered({ job_id: 'job-1', event_id: 'e2' })
+
+    // Drain stream (closes after terminal row)
+    const text = await drainStream(res.body)
+    expect(text).toContain('"event_id":"e2"')
+    expect(text).toContain('"to_status":"approved"')
+  })
+
+  it('ignores notifications for a different job_id', async () => {
+    const { triggerAfterRegistered, waitForRegistered } = mockListener()
+
+    vi.mocked(pool.query)
+      .mockResolvedValueOnce({ rows: [{ job_id: 'job-1', status: 'tailoring' }] } as never)
+      // replay: one non-terminal row (establishes cursor)
+      .mockResolvedValueOnce({ rows: [
+        { event_id: 'e1', job_id: 'job-1', event_type: 'status_change', agent_name: null, from_status: 'new', to_status: 'found', model_used: null, detail: null, metadata: null, timestamp: '2026-01-01T00:00:01Z' },
+      ] } as never)
+      // immediate catch-up: no rows
+      .mockResolvedValueOnce({ rows: [] } as never)
+
+    const res = await jobs.request('/job-1/events')
+    expect(res.status).toBe(200)
+
+    // Wait for listener registration, then trigger a DIFFERENT job — should not query or emit
+    await waitForRegistered()
+    // Give the catch-up query time to complete
+    await Promise.resolve()
+    await Promise.resolve()
+    const callCountBeforeTrigger = vi.mocked(pool.query).mock.calls.length
+
+    triggerAfterRegistered({ job_id: 'job-OTHER', event_id: 'eX' })
+
+    // Give microtasks time to settle — any spurious query would appear now
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    // No additional queries should have been made after the different-job notification
+    expect(vi.mocked(pool.query).mock.calls.length).toBe(callCountBeforeTrigger)
+  })
+
+  it('recovers missed events by emitting multiple rows after cursor in order', async () => {
+    const { triggerAfterRegistered } = mockListener()
+
+    const rows = [
+      { event_id: 'e2', job_id: 'job-1', event_type: 'status_change', agent_name: null, from_status: 'found', to_status: 'tailoring', model_used: null, detail: null, metadata: null, timestamp: '2026-01-01T00:00:02Z' },
+      // Terminal row at e3 so stream closes
+      { event_id: 'e3', job_id: 'job-1', event_type: 'status_change', agent_name: null, from_status: 'tailoring', to_status: 'approved', model_used: null, detail: null, metadata: null, timestamp: '2026-01-01T00:00:03Z' },
+    ]
+
+    vi.mocked(pool.query)
+      .mockResolvedValueOnce({ rows: [{ job_id: 'job-1', status: 'qa_review' }] } as never)
+      .mockResolvedValueOnce({ rows: [
+        { event_id: 'e1', job_id: 'job-1', event_type: 'status_change', agent_name: null, from_status: 'new', to_status: 'found', model_used: null, detail: null, metadata: null, timestamp: '2026-01-01T00:00:01Z' },
+      ] } as never)
+      // immediate catch-up: no rows
+      .mockResolvedValueOnce({ rows: [] } as never)
+      // notification-triggered: two missed rows (e2 non-terminal, e3 terminal)
+      .mockResolvedValueOnce({ rows: rows } as never)
+
+    const res = await jobs.request('/job-1/events')
+    expect(res.status).toBe(200)
+
+    // Fire notification after listener registered — triggers missed-event recovery
+    await triggerAfterRegistered({ job_id: 'job-1', event_id: 'e3' })
+
+    // Drain stream (closes at terminal e3)
+    const text = await drainStream(res.body)
+
+    const dataLines = text.split('\n').filter((l) => l.startsWith('data:') && (l.includes('e2') || l.includes('e3')))
+    expect(dataLines.length).toBeGreaterThanOrEqual(2)
+    // Verify order: e2 before e3
+    const e2Idx = text.indexOf('"event_id":"e2"')
+    const e3Idx = text.indexOf('"event_id":"e3"')
+    expect(e2Idx).toBeGreaterThanOrEqual(0)
+    expect(e3Idx).toBeGreaterThan(e2Idx)
+  })
+
+  it('emits terminal live event then closes stream after pg notification', async () => {
+    const { triggerAfterRegistered } = mockListener()
+
+    const terminalRow = {
+      event_id: 'e2',
+      job_id: 'job-1',
+      event_type: 'status_change',
+      agent_name: null,
+      from_status: 'qa_review',
+      to_status: 'approved',
+      model_used: null,
+      detail: null,
+      metadata: null,
+      timestamp: '2026-01-01T00:00:02Z',
+    }
+
+    vi.mocked(pool.query)
+      .mockResolvedValueOnce({ rows: [{ job_id: 'job-1', status: 'qa_review' }] } as never)
+      // replay: one non-terminal row
+      .mockResolvedValueOnce({ rows: [
+        { event_id: 'e1', job_id: 'job-1', event_type: 'status_change', agent_name: null, from_status: 'new', to_status: 'found', model_used: null, detail: null, metadata: null, timestamp: '2026-01-01T00:00:01Z' },
+      ] } as never)
+      // immediate catch-up: no rows
+      .mockResolvedValueOnce({ rows: [] } as never)
+      // notification-triggered: terminal row
+      .mockResolvedValueOnce({ rows: [terminalRow] } as never)
+
+    const res = await jobs.request('/job-1/events')
+    expect(res.status).toBe(200)
+
+    // Trigger notification after listener is registered
+    await triggerAfterRegistered({ job_id: 'job-1', event_id: 'e2' })
+
+    // Drain stream — closes because terminal event was emitted
+    const text = await drainStream(res.body)
+    expect(text).toContain('"to_status":"approved"')
+    expect(text).toContain('"event_id":"e2"')
+  })
+
+  it('calls listener.close() and clears keepalive when client aborts the stream', async () => {
+    const { close } = mockListener()
+
+    vi.mocked(pool.query)
+      .mockResolvedValueOnce({ rows: [{ job_id: 'job-1', status: 'tailoring' }] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never)
+
+    const res = await jobs.request('/job-1/events')
+    expect(res.status).toBe(200)
+
+    // Cancel the body reader to abort the stream
+    await res.body?.cancel()
+    // Give the abort handler time to fire
+    await new Promise((r) => setTimeout(r, 10))
+
+    // listener.close() must have been called
+    expect(close).toHaveBeenCalledTimes(1)
+  })
+
+  it('emits a row inserted between initial replay and LISTEN registration (setup race regression)', async () => {
+    // Arrange: the immediate catch-up after listenForPipelineEvents returns a row that appeared
+    // after initial replay completed but before LISTEN registration became active.
+    // This row is NOT preceded by any notification — the catch-up query alone emits it.
+    const { trigger: _trigger } = mockListener()
+
+    const raceRow = {
+      event_id: 'e-race',
+      job_id: 'job-1',
+      event_type: 'status_change',
+      agent_name: null,
+      from_status: 'found',
+      to_status: 'approved', // terminal — stream will close
+      model_used: null,
+      detail: null,
+      metadata: null,
+      timestamp: '2026-01-01T00:00:02Z',
+    }
+
+    vi.mocked(pool.query)
+      .mockResolvedValueOnce({ rows: [{ job_id: 'job-1', status: 'tailoring' }] } as never)
+      // initial replay: no rows (race row not yet visible at replay time)
+      .mockResolvedValueOnce({ rows: [] } as never)
+      // immediate catch-up after listenForPipelineEvents — picks up race row (terminal)
+      .mockResolvedValueOnce({ rows: [raceRow] } as never)
+
+    const res = await jobs.request('/job-1/events')
+    expect(res.status).toBe(200)
+
+    // Drain stream — closes because race row is terminal
+    const text = await drainStream(res.body)
+
+    // The race row must be present without needing a notification
+    expect(text).toContain('"event_id":"e-race"')
   })
 })
 
