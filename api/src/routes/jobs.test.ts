@@ -1,11 +1,15 @@
 import { EventEmitter } from 'node:events'
 import { spawn } from 'node:child_process'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { beforeEach, afterEach, describe, expect, it, vi, beforeAll } from 'vitest'
 import jobs from './jobs.js'
 import { pool } from '../db.js'
 import { toPipelineEventPayload } from '../sse.js'
 import * as pgListener from '../pg-listener.js'
 import type { PipelineEventListener, PipelineNotification } from '../pg-listener.js'
+import { resetResumeRendererForTests } from '../resume-render.js'
 
 // Full app import for auth integration tests
 import { app } from '../index.js'
@@ -27,6 +31,27 @@ vi.mock('../pg-listener.js', () => ({
 const query = vi.mocked(pool.query)
 const spawnMock = vi.mocked(spawn)
 const listenForPipelineEventsMock = vi.mocked(pgListener.listenForPipelineEvents)
+const PDF_VERSION_ID = '550e8400-e29b-41d4-a716-446655440000'
+const renderCvYaml = `cv:
+  name: Test Candidate
+  email: test@example.com
+  sections:
+    summary:
+      - Builds reliable backend systems.
+    experience:
+      - company: Example Co
+        position: Staff Engineer
+        start_date: 2020-01
+        end_date: present
+        highlights:
+          - Delivered API platforms.
+    education:
+      - institution: Example University
+        area: Computer Science
+        degree: BS
+design:
+  theme: classic
+`
 
 /** Returns a controllable mock listener and callback capture. */
 function mockListener() {
@@ -93,10 +118,38 @@ async function readStreamUntil(
 }
 
 function mockChild() {
-  const child = new EventEmitter() as EventEmitter & { unref: () => void }
+  const child = new EventEmitter() as EventEmitter & {
+    stdout: EventEmitter
+    stderr: EventEmitter
+    kill: ReturnType<typeof vi.fn>
+    unref: () => void
+  }
+  child.stdout = new EventEmitter()
+  child.stderr = new EventEmitter()
+  child.kill = vi.fn()
   child.unref = vi.fn()
   spawnMock.mockReturnValue(child as ReturnType<typeof spawn>)
   return child
+}
+
+async function withPdfCacheDir(tempDirs: string[]) {
+  const dir = await mkdtemp(path.join(tmpdir(), 'jobs-route-pdf-'))
+  process.env.RESUME_PDF_CACHE_DIR = dir
+  tempDirs.push(dir)
+  resetResumeRendererForTests()
+  return dir
+}
+
+function mockRenderCvSuccess(pdf = Buffer.from('%PDF-test')) {
+  spawnMock.mockImplementation(((_cmd, args) => {
+    const child = mockChild()
+    const outputDir = String(args?.[3])
+    queueMicrotask(async () => {
+      await writeFile(path.join(outputDir, 'resume.pdf'), pdf)
+      child.emit('close', 0)
+    })
+    return child as ReturnType<typeof spawn>
+  }) as typeof spawn)
 }
 
 /** Default no-op listener mock for tests that don't need live events. */
@@ -513,9 +566,24 @@ describe('GET /jobs/:id/events (SSE live delivery)', () => {
 })
 
 describe('jobs routes', () => {
+  let tempDirs: string[] = []
+
   beforeEach(() => {
     vi.resetAllMocks()
     mockChild()
+    resetResumeRendererForTests()
+    delete process.env.RESUME_PDF_CACHE_DIR
+    delete process.env.RESUME_PDF_RENDER_TIMEOUT_MS
+  })
+
+  afterEach(async () => {
+    resetResumeRendererForTests()
+    for (const dir of tempDirs) {
+      await rm(dir, { recursive: true, force: true })
+    }
+    tempDirs = []
+    delete process.env.RESUME_PDF_CACHE_DIR
+    delete process.env.RESUME_PDF_RENDER_TIMEOUT_MS
   })
 
   it('returns 401 without X-API-Key for resume list when routed through the mounted app', async () => {
@@ -609,6 +677,107 @@ describe('jobs routes', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('text/markdown; charset=utf-8')
     await expect(res.text()).resolves.toBe(source)
+  })
+
+  it('returns 401 without X-API-Key for PDF when routed through the mounted app', async () => {
+    const res = await app.request(`/jobs/job-123/resume/${PDF_VERSION_ID}/pdf`)
+    expect(res.status).toBe(401)
+    const body = (await res.json()) as Record<string, unknown>
+    expect(body.code).toBe('unauthorized')
+  })
+
+  it('returns rendered PDF with immutable cache headers', async () => {
+    await withPdfCacheDir(tempDirs)
+    const pdf = Buffer.from('%PDF-test')
+    mockRenderCvSuccess(pdf)
+    query.mockResolvedValueOnce({ rows: [{ latex_source: renderCvYaml }] } as never)
+
+    const res = await jobs.request(`/job-123/resume/${PDF_VERSION_ID}/pdf`)
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('application/pdf')
+    expect(res.headers.get('content-length')).toBe(String(pdf.byteLength))
+    expect(res.headers.get('cache-control')).toBe('private, max-age=31536000, immutable')
+    await expect(res.arrayBuffer()).resolves.toEqual(
+      pdf.buffer.slice(pdf.byteOffset, pdf.byteOffset + pdf.byteLength),
+    )
+    expect(query).toHaveBeenCalledWith(
+      `SELECT latex_source FROM resume_versions WHERE job_id = $1 AND version_id = $2`,
+      ['job-123', PDF_VERSION_ID],
+    )
+    expect(spawnMock).toHaveBeenCalledWith(
+      'rendercv',
+      expect.arrayContaining(['render']),
+      expect.objectContaining({ stdio: ['ignore', 'pipe', 'pipe'] }),
+    )
+  })
+
+  it('returns 404 for PDF when version is missing or belongs to another job', async () => {
+    query.mockResolvedValueOnce({ rows: [] } as never)
+
+    const res = await jobs.request(`/job-123/resume/${PDF_VERSION_ID}/pdf`)
+
+    expect(res.status).toBe(404)
+    const body = (await res.json()) as Record<string, unknown>
+    expect(body.code).toBe('not_found')
+    expect(body.error).toBe('Resume version not found.')
+    expect(query).toHaveBeenCalledWith(
+      `SELECT latex_source FROM resume_versions WHERE job_id = $1 AND version_id = $2`,
+      ['job-123', PDF_VERSION_ID],
+    )
+    expect(spawnMock).not.toHaveBeenCalled()
+  })
+
+  it('returns 503 when RenderCV is unavailable', async () => {
+    await withPdfCacheDir(tempDirs)
+    query.mockResolvedValueOnce({ rows: [{ latex_source: renderCvYaml }] } as never)
+    spawnMock.mockImplementation((() => {
+      const child = mockChild()
+      queueMicrotask(() => child.emit('error', new Error('missing rendercv')))
+      return child as ReturnType<typeof spawn>
+    }) as typeof spawn)
+
+    const res = await jobs.request(`/job-123/resume/${PDF_VERSION_ID}/pdf`)
+
+    expect(res.status).toBe(503)
+    const body = (await res.json()) as Record<string, unknown>
+    expect(body.type).toBe('rendercv_unavailable')
+    expect(body.detail).toBe('RenderCV is not available on this host.')
+  })
+
+  it('returns 504 when RenderCV times out', async () => {
+    await withPdfCacheDir(tempDirs)
+    process.env.RESUME_PDF_RENDER_TIMEOUT_MS = '10'
+    resetResumeRendererForTests()
+    query.mockResolvedValueOnce({ rows: [{ latex_source: renderCvYaml }] } as never)
+    mockChild()
+
+    const res = await jobs.request(`/job-123/resume/${PDF_VERSION_ID}/pdf`)
+
+    expect(res.status).toBe(504)
+    const body = (await res.json()) as Record<string, unknown>
+    expect(body.type).toBe('render_timeout')
+    expect(body.detail).toBe('Resume PDF rendering timed out.')
+  })
+
+  it('returns sanitized 500 when RenderCV fails', async () => {
+    await withPdfCacheDir(tempDirs)
+    query.mockResolvedValueOnce({ rows: [{ latex_source: renderCvYaml }] } as never)
+    spawnMock.mockImplementation((() => {
+      const child = mockChild()
+      queueMicrotask(() => {
+        child.stderr.emit('data', Buffer.from('SECRET_STDERR_TOKEN'))
+        child.emit('close', 1)
+      })
+      return child as ReturnType<typeof spawn>
+    }) as typeof spawn)
+
+    const res = await jobs.request(`/job-123/resume/${PDF_VERSION_ID}/pdf`)
+
+    expect(res.status).toBe(500)
+    const bodyText = await res.text()
+    expect(bodyText).toContain('render_failed')
+    expect(bodyText).not.toContain('SECRET_STDERR_TOKEN')
   })
 
   it('returns uniform 404 when resume version is missing or belongs to another job', async () => {

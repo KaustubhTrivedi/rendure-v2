@@ -4,6 +4,12 @@ import { resolve } from 'path'
 import { streamSSE } from 'hono/streaming'
 import { pool } from '../db.js'
 import { httpError } from '../errors.js'
+import {
+  RenderCvFailedError,
+  RenderCvTimeoutError,
+  RenderCvUnavailableError,
+  getOrRenderPdf,
+} from '../resume-render.js'
 import { PIPELINE_SSE_EVENT, isTerminalStatus, toPipelineEventPayload, SSE_KEEPALIVE_COMMENT, SSE_KEEPALIVE_MS } from '../sse.js'
 import { listenForPipelineEvents } from '../pg-listener.js'
 
@@ -333,6 +339,53 @@ jobs.get('/:id/resume/:version_id', async (c) => {
   return c.text(result.rows[0].latex_source, 200, {
     'Content-Type': 'text/markdown; charset=utf-8',
   })
+})
+
+/**
+ * GET /jobs/:id/resume/:version_id/pdf
+ *
+ * Return a RenderCV-rendered PDF for a resume version owned by the job.
+ */
+jobs.get('/:id/resume/:version_id/pdf', async (c) => {
+  const id = c.req.param('id')
+  const versionId = c.req.param('version_id')
+
+  const result = await pool.query(
+    `SELECT latex_source FROM resume_versions WHERE job_id = $1 AND version_id = $2`,
+    [id, versionId],
+  )
+  if (result.rows.length === 0) {
+    return httpError(c, 404, 'not_found', 'Resume version not found.')
+  }
+
+  try {
+    const pdf = await getOrRenderPdf({ versionId, source: result.rows[0].latex_source })
+    return c.body(pdf, 200, {
+      'Content-Type': 'application/pdf',
+      'Content-Length': String(pdf.byteLength),
+      'Cache-Control': 'private, max-age=31536000, immutable',
+    })
+  } catch (error) {
+    if (error instanceof RenderCvUnavailableError) {
+      return httpError(c, 503, 'internal_error', 'RenderCV unavailable.', {
+        type: 'rendercv_unavailable',
+        detail: 'RenderCV is not available on this host.',
+      })
+    }
+    if (error instanceof RenderCvTimeoutError) {
+      return httpError(c, 504, 'internal_error', 'RenderCV render timed out.', {
+        type: 'render_timeout',
+        detail: 'Resume PDF rendering timed out.',
+      })
+    }
+    if (error instanceof RenderCvFailedError) {
+      return httpError(c, 500, 'internal_error', 'Resume PDF render failed.', {
+        type: 'render_failed',
+        detail: 'Resume PDF rendering failed.',
+      })
+    }
+    throw error
+  }
 })
 
 /**
