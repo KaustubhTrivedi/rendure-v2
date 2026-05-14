@@ -20,7 +20,7 @@ The existing Hono/TypeScript backend (`api/`) already handles job submission, li
 
 - [x] **Phase 1: Auth & Profile Completion** — API key middleware, PATCH /profile, error/logging conventions
 - [x] **Phase 2: SSE Pipeline Progress** — Real-time GET /jobs/:id/events with replay, keepalive, terminal-state close
-- [ ] **Phase 3: Resume Retrieval & PDF** — Markdown endpoints, RenderCV PDF rendering with disk cache
+- [x] **Phase 3: Resume Retrieval & PDF** — Markdown endpoints, RenderCV PDF rendering with disk cache
 - [ ] **Phase 4: Telegram Bot Integration** — Webhook receiver, signed-update verification, terminal-state notifications
 
 ## Phase Details
@@ -72,9 +72,9 @@ Plans:
   5. Unknown job or version IDs return 404 with a problem JSON
 **Plans**: 3 plans
 Plans:
-- [ ] 03-01-PLAN.md — Resume version list and Markdown retrieval routes with auth inheritance and uniform 404s
-- [ ] 03-02-PLAN.md — RenderCV host-CLI render/cache helper with contract validation, timeout, concurrency cap, and dedupe
-- [ ] 03-03-PLAN.md — PDF endpoint integration, startup RenderCV probe, cache ignore, and host-CLI docs
+- [x] 03-01-PLAN.md — Resume version list and Markdown retrieval routes with auth inheritance and uniform 404s
+- [x] 03-02-PLAN.md — RenderCV host-CLI render/cache helper with contract validation, timeout, concurrency cap, and dedupe
+- [x] 03-03-PLAN.md — PDF endpoint integration, startup RenderCV probe, cache ignore, and host-CLI docs
 **UI hint**: no
 
 ### Phase 4: Telegram Bot Integration
