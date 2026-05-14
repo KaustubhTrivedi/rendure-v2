@@ -1,7 +1,7 @@
-# Graph Report - /Users/kaustubhtrivedi/Projects/jobs-tracker  (2026-05-09)
+# Graph Report - /Users/kaustubhtrivedi/Projects/jobs-tracker  (2026-05-13)
 
 ## Corpus Check
-- 18 files · ~28,433 words
+- 18 files · ~38,814 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary

@@ -26,9 +26,9 @@
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/run_agents.py",
       "source_location": "L1",
-      "id": "run_agents_rationale_1",
       "community": 2,
-      "norm_label": "cli entry point for the jobs agency pipeline.  usage:     uv run python run_agen"
+      "norm_label": "cli entry point for the jobs agency pipeline.  usage:     uv run python run_agen",
+      "id": "run_agents_rationale_1"
     },
     {
       "label": "first_test.py",
@@ -89,9 +89,9 @@
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/first_test.py",
       "source_location": "L1",
-      "id": "first_test_rationale_1",
       "community": 7,
-      "norm_label": "first_test.py \u2013 smoke-test for the openrouter + langchain setup.  run with:"
+      "norm_label": "first_test.py \u2013 smoke-test for the openrouter + langchain setup.  run with:",
+      "id": "first_test_rationale_1"
     },
     {
       "label": "resume_tailor.py",
@@ -161,27 +161,27 @@
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/resume_tailor.py",
       "source_location": "L1",
-      "id": "resume_tailor_rationale_1",
       "community": 1,
-      "norm_label": "resume tailor agent \u2014 reads job description from db, rewrites the resume markdow"
+      "norm_label": "resume tailor agent \u2014 reads job description from db, rewrites the resume markdow",
+      "id": "resume_tailor_rationale_1"
     },
     {
       "label": "Dual-mode: always print for CLI, also call event_callback for web.",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/resume_tailor.py",
       "source_location": "L147",
-      "id": "resume_tailor_rationale_147",
       "community": 1,
-      "norm_label": "dual-mode: always print for cli, also call event_callback for web."
+      "norm_label": "dual-mode: always print for cli, also call event_callback for web.",
+      "id": "resume_tailor_rationale_147"
     },
     {
       "label": "Tailor the resume for the given job_id.     Returns {\"outcome\": \"success\", \"job_",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/resume_tailor.py",
       "source_location": "L161",
-      "id": "resume_tailor_rationale_161",
       "community": 1,
-      "norm_label": "tailor the resume for the given job_id.     returns {\"outcome\": \"success\", \"job_"
+      "norm_label": "tailor the resume for the given job_id.     returns {\"outcome\": \"success\", \"job_",
+      "id": "resume_tailor_rationale_161"
     },
     {
       "label": "__init__.py",
@@ -242,27 +242,27 @@
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/confirmation.py",
       "source_location": "L1",
-      "id": "confirmation_rationale_1",
       "community": 6,
-      "norm_label": "confirmation agent \u2014 final agent in the pipeline. reads the approved job record,"
+      "norm_label": "confirmation agent \u2014 final agent in the pipeline. reads the approved job record,",
+      "id": "confirmation_rationale_1"
     },
     {
       "label": "Dual-mode: always print for CLI, also call event_callback for web.",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/confirmation.py",
       "source_location": "L39",
-      "id": "confirmation_rationale_39",
       "community": 6,
-      "norm_label": "dual-mode: always print for cli, also call event_callback for web."
+      "norm_label": "dual-mode: always print for cli, also call event_callback for web.",
+      "id": "confirmation_rationale_39"
     },
     {
       "label": "Verify the approved job record and assemble a completion payload.     Returns th",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/confirmation.py",
       "source_location": "L46",
-      "id": "confirmation_rationale_46",
       "community": 6,
-      "norm_label": "verify the approved job record and assemble a completion payload.     returns th"
+      "norm_label": "verify the approved job record and assemble a completion payload.     returns th",
+      "id": "confirmation_rationale_46"
     },
     {
       "label": "job_scout.py",
@@ -341,54 +341,54 @@
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/job_scout.py",
       "source_location": "L1",
-      "id": "job_scout_rationale_1",
       "community": 3,
-      "norm_label": "job scout agent \u2014 scrapes a job posting url, extracts structured fields via llm,"
+      "norm_label": "job scout agent \u2014 scrapes a job posting url, extracts structured fields via llm,",
+      "id": "job_scout_rationale_1"
     },
     {
       "label": "Raised when the agent fails and surfaces to the Orchestrator.",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/job_scout.py",
       "source_location": "L66",
-      "id": "job_scout_rationale_66",
       "community": 3,
-      "norm_label": "raised when the agent fails and surfaces to the orchestrator."
+      "norm_label": "raised when the agent fails and surfaces to the orchestrator.",
+      "id": "job_scout_rationale_66"
     },
     {
       "label": "Fetch page content as plain text via Jina Reader API.      Jina Reader handles b",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/job_scout.py",
       "source_location": "L76",
-      "id": "job_scout_rationale_76",
       "community": 3,
-      "norm_label": "fetch page content as plain text via jina reader api.      jina reader handles b"
+      "norm_label": "fetch page content as plain text via jina reader api.      jina reader handles b",
+      "id": "job_scout_rationale_76"
     },
     {
       "label": "Return True if the page contains likely prompt-injection content.",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/job_scout.py",
       "source_location": "L105",
-      "id": "job_scout_rationale_105",
       "community": 3,
-      "norm_label": "return true if the page contains likely prompt-injection content."
+      "norm_label": "return true if the page contains likely prompt-injection content.",
+      "id": "job_scout_rationale_105"
     },
     {
       "label": "Dual-mode: always print for CLI, also call event_callback for web.",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/job_scout.py",
       "source_location": "L152",
-      "id": "job_scout_rationale_152",
       "community": 3,
-      "norm_label": "dual-mode: always print for cli, also call event_callback for web."
+      "norm_label": "dual-mode: always print for cli, also call event_callback for web.",
+      "id": "job_scout_rationale_152"
     },
     {
       "label": "Scrape job_url, extract structured fields, write to DB.     Returns {\"outcome\":",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/job_scout.py",
       "source_location": "L159",
-      "id": "job_scout_rationale_159",
       "community": 3,
-      "norm_label": "scrape job_url, extract structured fields, write to db.     returns {\"outcome\":"
+      "norm_label": "scrape job_url, extract structured fields, write to db.     returns {\"outcome\":",
+      "id": "job_scout_rationale_159"
     },
     {
       "label": "orchestrator.py",
@@ -557,90 +557,90 @@
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/orchestrator.py",
       "source_location": "L1",
-      "id": "orchestrator_rationale_1",
       "community": 0,
-      "norm_label": "orchestrator agent \u2014 the single persistent agent and sole entry point.  controls"
+      "norm_label": "orchestrator agent \u2014 the single persistent agent and sole entry point.  controls",
+      "id": "orchestrator_rationale_1"
     },
     {
       "label": "Dual-mode: always print for CLI, also call event_callback for web.",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/orchestrator.py",
       "source_location": "L38",
-      "id": "orchestrator_rationale_38",
       "community": 0,
-      "norm_label": "dual-mode: always print for cli, also call event_callback for web."
+      "norm_label": "dual-mode: always print for cli, also call event_callback for web.",
+      "id": "orchestrator_rationale_38"
     },
     {
       "label": "Poll jobs.status until it matches one of expected_statuses or timeout.",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/orchestrator.py",
       "source_location": "L136",
-      "id": "orchestrator_rationale_136",
       "community": 0,
-      "norm_label": "poll jobs.status until it matches one of expected_statuses or timeout."
+      "norm_label": "poll jobs.status until it matches one of expected_statuses or timeout.",
+      "id": "orchestrator_rationale_136"
     },
     {
       "label": "Run an agent function. On model error, log fallback event and retry with fallbac",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/orchestrator.py",
       "source_location": "L156",
-      "id": "orchestrator_rationale_156",
       "community": 0,
-      "norm_label": "run an agent function. on model error, log fallback event and retry with fallbac"
+      "norm_label": "run an agent function. on model error, log fallback event and retry with fallbac",
+      "id": "orchestrator_rationale_156"
     },
     {
       "label": "Extract the first JSON object from LLM output, stripping markdown fences.",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/orchestrator.py",
       "source_location": "L217",
-      "id": "orchestrator_rationale_217",
       "community": 0,
-      "norm_label": "extract the first json object from llm output, stripping markdown fences."
+      "norm_label": "extract the first json object from llm output, stripping markdown fences.",
+      "id": "orchestrator_rationale_217"
     },
     {
       "label": "Extract structured fields from a pasted JD via LLM, write them to the DB,     an",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/orchestrator.py",
       "source_location": "L236",
-      "id": "orchestrator_rationale_236",
       "community": 0,
-      "norm_label": "extract structured fields from a pasted jd via llm, write them to the db,     an"
+      "norm_label": "extract structured fields from a pasted jd via llm, write them to the db,     an",
+      "id": "orchestrator_rationale_236"
     },
     {
       "label": "Run the full Jobs Agency pipeline.      Pass either job_url (URL mode) or jd_tex",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/orchestrator.py",
       "source_location": "L362",
-      "id": "orchestrator_rationale_362",
       "community": 0,
-      "norm_label": "run the full jobs agency pipeline.      pass either job_url (url mode) or jd_tex"
+      "norm_label": "run the full jobs agency pipeline.      pass either job_url (url mode) or jd_tex",
+      "id": "orchestrator_rationale_362"
     },
     {
       "label": "Set job status to error and notify user.",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/orchestrator.py",
       "source_location": "L825",
-      "id": "orchestrator_rationale_825",
       "community": 0,
-      "norm_label": "set job status to error and notify user."
+      "norm_label": "set job status to error and notify user.",
+      "id": "orchestrator_rationale_825"
     },
     {
       "label": "Convert text to a filesystem-safe slug.",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/orchestrator.py",
       "source_location": "L883",
-      "id": "orchestrator_rationale_883",
       "community": 0,
-      "norm_label": "convert text to a filesystem-safe slug."
+      "norm_label": "convert text to a filesystem-safe slug.",
+      "id": "orchestrator_rationale_883"
     },
     {
       "label": "Export approved resume to output folder and build PDF via RenderCV Docker.",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/orchestrator.py",
       "source_location": "L893",
-      "id": "orchestrator_rationale_893",
       "community": 0,
-      "norm_label": "export approved resume to output folder and build pdf via rendercv docker."
+      "norm_label": "export approved resume to output folder and build pdf via rendercv docker.",
+      "id": "orchestrator_rationale_893"
     },
     {
       "label": "quality_analyst.py",
@@ -719,45 +719,45 @@
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/quality_analyst.py",
       "source_location": "L1",
-      "id": "quality_analyst_rationale_1",
       "community": 2,
-      "norm_label": "quality analyst agent \u2014 evaluates a tailored resume against the job description"
+      "norm_label": "quality analyst agent \u2014 evaluates a tailored resume against the job description",
+      "id": "quality_analyst_rationale_1"
     },
     {
       "label": "Load the candidate hard constraints. Returns empty string if missing (non-fatal",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/quality_analyst.py",
       "source_location": "L34",
-      "id": "quality_analyst_rationale_34",
       "community": 2,
-      "norm_label": "load the candidate hard constraints. returns empty string if missing (non-fatal"
+      "norm_label": "load the candidate hard constraints. returns empty string if missing (non-fatal",
+      "id": "quality_analyst_rationale_34"
     },
     {
       "label": "Compute 6-dimension composite score.      Formula (weights sum to 1.00):       k",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/quality_analyst.py",
       "source_location": "L333",
-      "id": "quality_analyst_rationale_333",
       "community": 2,
-      "norm_label": "compute 6-dimension composite score.      formula (weights sum to 1.00):       k"
+      "norm_label": "compute 6-dimension composite score.      formula (weights sum to 1.00):       k",
+      "id": "quality_analyst_rationale_333"
     },
     {
       "label": "Dual-mode: always print for CLI, also call event_callback for web.",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/quality_analyst.py",
       "source_location": "L384",
-      "id": "quality_analyst_rationale_384",
       "community": 2,
-      "norm_label": "dual-mode: always print for cli, also call event_callback for web."
+      "norm_label": "dual-mode: always print for cli, also call event_callback for web.",
+      "id": "quality_analyst_rationale_384"
     },
     {
       "label": "Evaluate the tailored resume for this version_id.     Returns a signal dict with",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/agents/quality_analyst.py",
       "source_location": "L397",
-      "id": "quality_analyst_rationale_397",
       "community": 2,
-      "norm_label": "evaluate the tailored resume for this version_id.     returns a signal dict with"
+      "norm_label": "evaluate the tailored resume for this version_id.     returns a signal dict with",
+      "id": "quality_analyst_rationale_397"
     },
     {
       "label": "toon.py",
@@ -800,36 +800,36 @@
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/utils/toon.py",
       "source_location": "L1",
-      "id": "toon_rationale_1",
       "community": 1,
-      "norm_label": "toonformat utilities \u2014 token-oriented object notation.  serializers for structur"
+      "norm_label": "toonformat utilities \u2014 token-oriented object notation.  serializers for structur",
+      "id": "toon_rationale_1"
     },
     {
       "label": "Encode a flat string list as a TOON block.      Output format:         name[N]:",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/utils/toon.py",
       "source_location": "L18",
-      "id": "toon_rationale_18",
       "community": 1,
-      "norm_label": "encode a flat string list as a toon block.      output format:         name[n]:"
+      "norm_label": "encode a flat string list as a toon block.      output format:         name[n]:",
+      "id": "toon_rationale_18"
     },
     {
       "label": "Encode a list of dicts as a TOON tabular block.      Output format:         name",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/utils/toon.py",
       "source_location": "L34",
-      "id": "toon_rationale_34",
       "community": 1,
-      "norm_label": "encode a list of dicts as a toon tabular block.      output format:         name"
+      "norm_label": "encode a list of dicts as a toon tabular block.      output format:         name",
+      "id": "toon_rationale_34"
     },
     {
       "label": "Parse a TOON table block into a list of dicts.      Accepts the full block (with",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/utils/toon.py",
       "source_location": "L55",
-      "id": "toon_rationale_55",
       "community": 1,
-      "norm_label": "parse a toon table block into a list of dicts.      accepts the full block (with"
+      "norm_label": "parse a toon table block into a list of dicts.      accepts the full block (with",
+      "id": "toon_rationale_55"
     },
     {
       "label": "llm.py",
@@ -917,45 +917,45 @@
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/utils/llm.py",
       "source_location": "L1",
-      "id": "llm_rationale_1",
       "community": 4,
-      "norm_label": "llm.py \u2014 langchain basellm wrapper for the openrouter api.  wraps the openrouter"
+      "norm_label": "llm.py \u2014 langchain basellm wrapper for the openrouter api.  wraps the openrouter",
+      "id": "llm_rationale_1"
     },
     {
       "label": "Escape bare newlines/CRs inside JSON string values.      Some LLMs emit literal",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/utils/llm.py",
       "source_location": "L33",
-      "id": "llm_rationale_33",
       "community": 4,
-      "norm_label": "escape bare newlines/crs inside json string values.      some llms emit literal"
+      "norm_label": "escape bare newlines/crs inside json string values.      some llms emit literal",
+      "id": "llm_rationale_33"
     },
     {
       "label": "Extract the first JSON object from LLM output.      Handles:     - Markdown code",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/utils/llm.py",
       "source_location": "L63",
-      "id": "llm_rationale_63",
       "community": 4,
-      "norm_label": "extract the first json object from llm output.      handles:     - markdown code"
+      "norm_label": "extract the first json object from llm output.      handles:     - markdown code",
+      "id": "llm_rationale_63"
     },
     {
       "label": "LangChain BaseLLM wrapper for the OpenRouter API.",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/utils/llm.py",
       "source_location": "L86",
-      "id": "llm_rationale_86",
       "community": 4,
-      "norm_label": "langchain basellm wrapper for the openrouter api."
+      "norm_label": "langchain basellm wrapper for the openrouter api.",
+      "id": "llm_rationale_86"
     },
     {
       "label": "Create and return an OpenRouterLLM instance.      Args:         model_name:",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/utils/llm.py",
       "source_location": "L161",
-      "id": "llm_rationale_161",
       "community": 4,
-      "norm_label": "create and return an openrouterllm instance.      args:         model_name:"
+      "norm_label": "create and return an openrouterllm instance.      args:         model_name:",
+      "id": "llm_rationale_161"
     },
     {
       "label": "crypto.py",
@@ -998,27 +998,27 @@
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/utils/crypto.py",
       "source_location": "L1",
-      "id": "crypto_rationale_1",
       "community": 5,
-      "norm_label": "crypto.py \u2014 aes-256-gcm encryption helpers for sensitive profile fields.  the en"
+      "norm_label": "crypto.py \u2014 aes-256-gcm encryption helpers for sensitive profile fields.  the en",
+      "id": "crypto_rationale_1"
     },
     {
       "label": "Encrypt a string and return a base64-encoded nonce+ciphertext blob.",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/utils/crypto.py",
       "source_location": "L36",
-      "id": "crypto_rationale_36",
       "community": 5,
-      "norm_label": "encrypt a string and return a base64-encoded nonce+ciphertext blob."
+      "norm_label": "encrypt a string and return a base64-encoded nonce+ciphertext blob.",
+      "id": "crypto_rationale_36"
     },
     {
       "label": "Decrypt a base64-encoded nonce+ciphertext blob and return the plaintext.",
       "file_type": "rationale",
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/utils/crypto.py",
       "source_location": "L44",
-      "id": "crypto_rationale_44",
       "community": 5,
-      "norm_label": "decrypt a base64-encoded nonce+ciphertext blob and return the plaintext."
+      "norm_label": "decrypt a base64-encoded nonce+ciphertext blob and return the plaintext.",
+      "id": "crypto_rationale_44"
     },
     {
       "label": "app.test.ts",
@@ -1371,8 +1371,8 @@
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/utils/llm.py",
       "source_location": "L112",
       "weight": 1.0,
-      "_src": "llm_openrouterllm_call",
-      "_tgt": "runtimeerror",
+      "_src": "runtimeerror",
+      "_tgt": "llm_openrouterllm_call",
       "source": "runtimeerror",
       "target": "llm_openrouterllm_call"
     },
@@ -1383,8 +1383,8 @@
       "source_file": "/Users/kaustubhtrivedi/Projects/jobs-tracker/utils/crypto.py",
       "source_location": "L25",
       "weight": 1.0,
-      "_src": "crypto_load_key",
-      "_tgt": "runtimeerror",
+      "_src": "runtimeerror",
+      "_tgt": "crypto_load_key",
       "source": "runtimeerror",
       "target": "crypto_load_key"
     },
