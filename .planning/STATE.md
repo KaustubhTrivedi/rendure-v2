@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Complete Backend
-status: Phase 4 Plan 02 complete
-stopped_at: Plan 02 (Telegram formatting and sendMessage client) complete
-last_updated: "2026-05-21T16:35:18.000Z"
+status: Phase 4 Plan 03 complete
+stopped_at: Plan 03 (Telegram webhook route) complete
+last_updated: "2026-05-21T16:46:00.000Z"
 last_activity: 2026-05-21
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 10
-  completed_plans: 9
-  percent: 90
+  completed_plans: 10
+  percent: 100
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-05-13)
 ## Current Position
 
 Phase: 04 (telegram-bot-integration) — IN PROGRESS
-Plan: 02 complete
-Status: Plan 02 (Telegram formatting and sendMessage client) executed. Plan 03 (Telegram webhook) can start.
-Last activity: 2026-05-21 -- Plan 04-02 executed (3/3 tasks, TDD, tests pass, build clean)
+Plan: 03 complete
+Status: Plan 03 (Telegram webhook route) executed. Plan 04 (Terminal notification listener) can start.
+Last activity: 2026-05-21 -- Plan 04-03 executed (3 tasks, TDD, 11 route tests + 4 app tests, build clean)
 
 ⚠ Pending manual step: apply `database/002_telegram.sql` migration to the running DB.
    Run: `PGPASSWORD='rendurepw@123' psql -h db.jobs-tracker.orb.local -U rendure_user -d rendure_db -f database/002_telegram.sql`
@@ -39,6 +39,7 @@ Last activity: 2026-05-21 -- Plan 04-02 executed (3/3 tasks, TDD, tests pass, bu
 |---------|------|----------|-------|-------|-------|
 | 04-01   | 01   | 4 min    | 3     | 3     | 37    |
 | 04-02   | 02   | 12 min   | 3     | 2     | 9     |
+| 04-03   | 03   | 2 min    | 3     | 4     | 19    |
 
 ## Accumulated Context
 
@@ -56,6 +57,10 @@ Last activity: 2026-05-21 -- Plan 04-02 executed (3/3 tasks, TDD, tests pass, bu
 - 2026-05-21: Telegram message formatting uses plain escaped text instead of code spans — Telegram MarkdownV2 renders code span content literally, so escaped content (e.g., `job\-id`) inside backticks would show backslashes visibly
 - 2026-05-21: sendTelegramMessage reads TELEGRAM_BOT_TOKEN at call time so tests can mutate env without module re-imports
 - 2026-05-21: escapeMarkdownV2 is exported separately for reuse by the webhook (Plan 04-03) for response text escaping
+- 2026-05-21: Telegram route mounted at /telegram BEFORE API-key middleware so webhook requests use Telegram secret auth instead
+- 2026-05-21: Middleware composition: config gate (503) runs before secret gate (401) — missing env vars caught before header check
+- 2026-05-21: URL extraction uses /https?:\/\/[^\s]+/g regex — simple but sufficient for Telegram message parsing
+- 2026-05-21: Zero or multiple URLs both return friendly help without calling submitJobUrl
 
 ### Decisions (carry-over still relevant)
 
@@ -77,6 +82,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-05-21T16:35:18Z
-Stopped at: Plan 04-02 (Telegram formatting and sendMessage client) complete
-Resume file: .planning/phases/04-telegram-bot-integration/04-02-SUMMARY.md
+Last session: 2026-05-21T16:46:00Z
+Stopped at: Plan 04-03 (Telegram webhook route) complete
+Resume file: .planning/phases/04-telegram-bot-integration/04-03-SUMMARY.md
