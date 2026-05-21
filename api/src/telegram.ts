@@ -47,6 +47,61 @@ export function escapeMarkdownV2(text: string): string {
   return text.replace(MARKDOWN_V2_ESCAPE_RE, '\\$&')
 }
 
+// ── Configuration ──────────────────────────────────────────────────────────
+
+/**
+ * Check whether a Telegram bot token is available for outbound messages.
+ *
+ * Reads `TELEGRAM_BOT_TOKEN` from the environment at call time so that
+ * tests can mutate `process.env` without module-level side effects.
+ */
+export function isTelegramBotConfigured(): boolean {
+  return !!process.env.TELEGRAM_BOT_TOKEN
+}
+
+// ── sendMessage client ─────────────────────────────────────────────────────
+
+const TELEGRAM_API_BASE = 'https://api.telegram.org/bot'
+
+/**
+ * Send a MarkdownV2-formatted message to the given Telegram chat.
+ *
+ * Reads `TELEGRAM_BOT_TOKEN` at call time.  Never includes the token
+ * in returned errors or log output (T-04-02-01).
+ */
+export async function sendTelegramMessage(
+  chatId: string,
+  text: string,
+): Promise<TelegramSendResult> {
+  const token = process.env.TELEGRAM_BOT_TOKEN
+  if (!token) {
+    return { ok: false, error: 'telegram_not_configured' }
+  }
+
+  const url = `${TELEGRAM_API_BASE}${token}/sendMessage`
+
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'MarkdownV2',
+      }),
+    })
+  } catch {
+    return { ok: false, error: 'telegram_send_failed' }
+  }
+
+  if (!response.ok) {
+    return { ok: false, error: 'telegram_send_failed' }
+  }
+
+  return { ok: true }
+}
+
 // ── Message formatting ─────────────────────────────────────────────────────
 
 /**

@@ -1,6 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { TelegramTerminalJob } from './telegram.js'
-import { formatTelegramTerminalMessage } from './telegram.js'
+import {
+  formatTelegramTerminalMessage,
+  isTelegramBotConfigured,
+  sendTelegramMessage,
+} from './telegram.js'
 
 describe('formatTelegramTerminalMessage', () => {
   it('formats approved job with QA score, role/company, and resume API paths', () => {
@@ -107,5 +111,73 @@ describe('formatTelegramTerminalMessage', () => {
     expect(msg).toContain('\\(star\\)')
     // No literal unescaped markdown chars from dynamic values
     expect(msg).not.toContain('[III]')
+  })
+})
+
+describe('isTelegramBotConfigured', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('returns false when TELEGRAM_BOT_TOKEN is missing', () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', '')
+    expect(isTelegramBotConfigured()).toBe(false)
+  })
+
+  it('returns true when TELEGRAM_BOT_TOKEN is set', () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'abc:def')
+    expect(isTelegramBotConfigured()).toBe(true)
+  })
+})
+
+describe('sendTelegramMessage', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+  })
+
+  it('returns telegram_not_configured when TELEGRAM_BOT_TOKEN is missing', async () => {
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', '')
+    const result = await sendTelegramMessage('123', 'Hello')
+    expect(result).toEqual({ ok: false, error: 'telegram_not_configured' })
+  })
+
+  it('sends POST JSON to correct Telegram API URL with token, chat_id, text, and parse_mode', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'bot123:token456')
+
+    const result = await sendTelegramMessage('chat-999', '*Hello* world')
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.telegram.org/botbot123:token456/sendMessage')
+    expect(opts.method).toBe('POST')
+    expect(opts.headers).toEqual({ 'Content-Type': 'application/json' })
+    const body = JSON.parse(opts.body as string)
+    expect(body.chat_id).toBe('chat-999')
+    expect(body.text).toBe('*Hello* world')
+    expect(body.parse_mode).toBe('MarkdownV2')
+    expect(result).toEqual({ ok: true })
+  })
+
+  it('returns telegram_send_failed on non-ok response without exposing token', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ ok: false, description: 'Bad request' }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'secret-token-123')
+
+    const result = await sendTelegramMessage('chat-999', 'Hello')
+
+    expect(result).toEqual({ ok: false, error: 'telegram_send_failed' })
+    // Token must not appear in the returned error
+    expect(JSON.stringify(result)).not.toContain('secret')
+    expect(JSON.stringify(result)).not.toContain('token')
   })
 })
