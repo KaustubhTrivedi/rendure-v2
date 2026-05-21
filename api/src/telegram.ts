@@ -76,11 +76,22 @@ export function formatTelegramTerminalMessage(job: TelegramTerminalJob): string 
       }
       if (job.active_resume_id) {
         const base = `/jobs/${escapeMarkdownV2(job.job_id)}/resume/${escapeMarkdownV2(job.active_resume_id)}`
-        lines.push(`*Resume:* \`${base}\``)
-        lines.push(`*PDF:* \`${base}/pdf\``)
+        lines.push(`*Resume:* ${base}`)
+        lines.push(`*PDF:* ${base}/pdf`)
       }
       return lines.join('\n')
     }
+    case 'error': {
+      // Safe, no stack traces (D-11)
+      const lines: string[] = []
+      lines.push(`❌ *Status:* Error`)
+      lines.push('')
+      lines.push('Tailoring failed for your job posting. The pipeline encountered an error before completing.')
+      lines.push('')
+      lines.push(`Check status: /jobs/${escapeMarkdownV2(job.job_id)}/status`)
+      return lines.join('\n')
+    }
+
     case 'low_match': {
       const lines: string[] = []
       lines.push(`⚠️ *Status:* Low Match`)
