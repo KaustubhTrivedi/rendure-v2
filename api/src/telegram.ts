@@ -81,7 +81,24 @@ export function formatTelegramTerminalMessage(job: TelegramTerminalJob): string 
       }
       return lines.join('\n')
     }
-    // Placeholder – other statuses will be added in subsequent RED->GREEN cycles
+    case 'low_match': {
+      const lines: string[] = []
+      lines.push(`⚠️ *Status:* Low Match`)
+      if (safe.score) {
+        lines.push(`*QA Score:* ${safe.score}`)
+      }
+      // Include top high-severity gaps, preserving supplied order
+      const highGaps = (job.gaps ?? []).filter((g) => g.severity === 'high')
+      if (highGaps.length > 0) {
+        lines.push('')
+        lines.push('*Key Gaps:*')
+        for (const gap of highGaps) {
+          const detail = gap.detail ? escapeMarkdownV2(gap.detail) : ''
+          lines.push(`• ${detail}`)
+        }
+      }
+      return lines.join('\n')
+    }
     default:
       return `Status: ${escapeMarkdownV2(job.status)}`
   }

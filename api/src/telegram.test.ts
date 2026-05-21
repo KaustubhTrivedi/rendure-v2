@@ -26,4 +26,35 @@ describe('formatTelegramTerminalMessage', () => {
     expect(msg).toContain('/jobs/job\\-abc\\-123/resume/resume\\-xyz\\-456')
     expect(msg).toContain('/jobs/job\\-abc\\-123/resume/resume\\-xyz\\-456/pdf')
   })
+
+  it('formats low_match with status, QA score, and top high-severity gaps', () => {
+    const job: TelegramTerminalJob = {
+      job_id: 'job-def-456',
+      status: 'low_match',
+      qa_score: 0.612,
+      company_name: 'Beta Inc',
+      role_title: 'Junior Developer',
+      active_resume_id: null,
+      gaps: [
+        { category: 'skills', detail: 'Missing TypeScript experience', severity: 'high' },
+        { category: 'experience', detail: 'No cloud deployment history', severity: 'high' },
+        { category: 'seniority', detail: 'Tone does not match junior level', severity: 'low' },
+        { category: 'structure', detail: 'Missing education section', severity: 'high' },
+      ],
+    }
+
+    const msg = formatTelegramTerminalMessage(job)
+
+    // Status
+    expect(msg).toContain('Low Match')
+    // QA score
+    expect(msg).toContain('0\\.612')
+    // Only high-severity gaps included (not low)
+    expect(msg).toContain('Missing TypeScript experience')
+    expect(msg).toContain('No cloud deployment history')
+    expect(msg).toContain('Missing education section')
+    expect(msg).not.toContain('Tone does not match junior level')
+    // No resume paths (no active_resume_id)
+    expect(msg).not.toContain('/resume/')
+  })
 })
