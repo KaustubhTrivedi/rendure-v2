@@ -16,6 +16,25 @@ Open-source, self-hosted resume tailoring. The app no longer depends on third-pa
 3. Open `http://localhost:5173`.
 4. Finish onboarding and paste your `OpenRouter` API key into the profile form before importing a resume or submitting jobs.
 
+## Production Docker Compose
+
+The production stack assumes the host only has Docker with the Compose plugin.
+
+```bash
+cp .env.production.example .env
+# edit .env and replace every changeme value
+docker compose up -d --build
+```
+
+The stack starts Postgres, runs SQL migrations from `database/`, starts the API, and
+serves the frontend on `${HTTP_PORT:-80}`. Postgres is private to the Docker network.
+
+Run an agent job manually with:
+
+```bash
+docker compose --profile agents run --rm agents "https://jobs.example.com/posting/12345"
+```
+
 ## Required Keys
 
 - `OpenRouter` is required for resume parsing and tailoring.

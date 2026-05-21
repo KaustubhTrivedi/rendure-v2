@@ -1,0 +1,15 @@
+FROM python:3.12-slim
+WORKDIR /app
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+COPY .python-version pyproject.toml uv.lock README.md ./
+RUN uv sync --frozen --no-dev --no-install-project
+
+COPY agents/ agents/
+COPY utils/ utils/
+COPY resume/ resume/
+COPY run_agents.py ./
+
+ENV PATH="/app/.venv/bin:$PATH"
+ENTRYPOINT ["python", "run_agents.py"]
