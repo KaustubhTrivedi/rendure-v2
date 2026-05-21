@@ -9,6 +9,7 @@ import telegram from './routes/telegram.js'
 import { logger, loggerMiddleware } from './middleware/logger.js'
 import { apiKeyMiddleware, assertApiKeyConfigured } from './middleware/apiKey.js'
 import { checkRenderCvAvailable } from './resume-render.js'
+import { startTelegramTerminalNotifier } from './telegram-notifier.js'
 
 const pkg = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf-8'),
@@ -51,6 +52,17 @@ if (process.env.NODE_ENV !== 'test') {
     })
     .catch(() => {
       logger.warn({ dependency: 'rendercv' }, 'RenderCV CLI unavailable; PDF resume downloads will return 503.')
+    })
+
+  void startTelegramTerminalNotifier()
+    .then((notifier) => {
+      logger.info({ feature: 'telegram-terminal-notifier' }, 'Telegram terminal notifications active.')
+      // Keep the notifier alive for the lifetime of the process; close on shutdown.
+      process.once('SIGTERM', () => { void notifier.close() })
+      process.once('SIGINT', () => { void notifier.close() })
+    })
+    .catch(() => {
+      logger.warn({ feature: 'telegram-terminal-notifier' }, 'Telegram terminal notifications unavailable due to startup error.')
     })
 
   serve({
