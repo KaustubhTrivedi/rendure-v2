@@ -87,7 +87,12 @@ Plans:
   3. When any job reaches `approved`, `low_match`, or `error`, the backend sends a Telegram message to `user_profile.notify_telegram_chat_id` with status, QA score, and a way to retrieve the resume
   4. Setting `notify_telegram_chat_id = null` via `PATCH /profile` stops notifications from being sent
   5. Server starts and serves all non-Telegram routes normally when `TELEGRAM_BOT_TOKEN` is unset; Telegram routes return a clear "not configured" error
-**Plans**: To be defined in `/gsd-plan-phase 4`
+**Plans**: 4 plans
+Plans:
+- [ ] 04-01-PLAN.md — Shared job submission helper for `/jobs` and Telegram URL intake
+- [ ] 04-02-PLAN.md — Telegram message formatting, Markdown escaping, and Bot API send client
+- [ ] 04-03-PLAN.md — `/telegram/webhook` secret-authenticated URL submission route
+- [ ] 04-04-PLAN.md — Terminal pipeline event Telegram notifications and startup wiring
 **UI hint**: no
 
 ---
