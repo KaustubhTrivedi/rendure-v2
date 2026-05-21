@@ -39,7 +39,7 @@ Previous milestone (v2.0) is superseded — see `.planning/MILESTONES.md`.
 
 ### TELEGRAM — Telegram bot integration
 
-- [ ] **TELEGRAM-01**: `POST /telegram/webhook` accepts Telegram bot updates (text messages with URLs) and submits them to the pipeline as a new job
+- [x] **TELEGRAM-01**: `POST /telegram/webhook` accepts Telegram bot updates (text messages with URLs) and submits them to the pipeline as a new job
 - [ ] **TELEGRAM-02**: Webhook signature/secret verification rejects unauthenticated Telegram updates (using Telegram's `secret_token`)
 - [ ] **TELEGRAM-03**: When a job reaches a terminal status, the backend sends a Telegram message to the configured chat with status, QA score, and a link/handle to retrieve the resume
 - [ ] **TELEGRAM-04**: The Telegram chat ID for notifications is stored on `user_profile.notify_telegram_chat_id` (set via `PATCH /profile`)
