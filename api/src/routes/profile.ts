@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { pool } from '../db.js'
-import { encrypt } from '../crypto.js'
+import { encrypt, decrypt } from '../crypto.js'
 import { httpError } from '../errors.js'
 
 const profile = new Hono()
@@ -196,6 +196,49 @@ profile.delete('/api-key', async (c) => {
     `UPDATE user_profile SET openrouter_api_key_enc = NULL, updated_at = NOW() WHERE id = 1`,
   )
   return c.json({ ok: true })
+})
+
+/**
+ * GET /profile/models
+ *
+ * Fetches available models from OpenRouter using the stored API key.
+ * Returns the raw model list from OpenRouter's API.
+ */
+profile.get('/models', async (c) => {
+  const result = await pool.query(
+    `SELECT openrouter_api_key_enc FROM user_profile WHERE id = 1`,
+  )
+
+  if (result.rows.length === 0 || !result.rows[0].openrouter_api_key_enc) {
+    return httpError(c, 404, 'not_found', 'API key not configured', {
+      detail: 'Set one via PUT /profile/api-key first.',
+    })
+  }
+
+  let apiKey: string
+  try {
+    apiKey = decrypt(result.rows[0].openrouter_api_key_enc)
+  } catch {
+    return httpError(c, 500, 'internal_error', 'Failed to decrypt stored API key.')
+  }
+
+  const res = await fetch('https://openrouter.ai/api/v1/models', {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  })
+
+  if (!res.ok) {
+    return httpError(c, 502, 'bad_request', 'OpenRouter request failed', {
+      detail: `OpenRouter returned ${res.status}.`,
+    })
+  }
+
+  const body = (await res.json()) as { data: { id: string; name: string }[] }
+  const models = body.data
+    .filter((m) => !m.id.endsWith(':free'))
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((m) => ({ id: m.id, name: m.name }))
+
+  return c.json(models)
 })
 
 export default profile

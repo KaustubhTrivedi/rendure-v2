@@ -6,7 +6,7 @@ import { pool } from './db.js'
  * Absolute path to the project root (parent of api/).
  * api/src/job-submission.ts → api/src/ → api/ → project root via resolve('..', '..')
  */
-const PROJECT_ROOT = resolve(import.meta.dirname, '..', '..')
+const PROJECT_ROOT = process.env.PROJECT_ROOT ?? resolve(import.meta.dirname, '..', '..')
 
 /**
  * Result of a job submission attempt.

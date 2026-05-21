@@ -1,0 +1,13 @@
+FROM node:22-alpine
+WORKDIR /app
+RUN apk add --no-cache wget
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY app/ app/
+COPY vite.config.ts ./
+COPY react-router.config.ts ./
+HEALTHCHECK --interval=10s --timeout=5s --retries=3 \
+  CMD wget -qO- http://localhost:5173/ | grep -q "Rendure" || exit 1
+EXPOSE 5173
+CMD ["npx", "react-router", "dev", "--host"]

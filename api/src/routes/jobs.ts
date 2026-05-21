@@ -231,6 +231,47 @@ jobs.get('/:id/events', async (c) => {
 })
 
 /**
+ * GET /jobs/:id/qa
+ *
+ * List all QA reviews for a job, ordered by most recent first.
+ * Used by the frontend QA report page to show review history.
+ */
+jobs.get('/:id/qa', async (c) => {
+  const id = c.req.param('id')
+
+  const jobResult = await pool.query(
+    `SELECT job_id FROM jobs WHERE job_id = $1`,
+    [id],
+  )
+  if (jobResult.rows.length === 0) {
+    return httpError(c, 404, 'not_found', 'Job not found.')
+  }
+
+  const result = await pool.query(
+    `SELECT
+       qr.review_id,
+       qr.score,
+       qr.passed,
+       qr.score_threshold,
+       qr.keyword_match,
+       qr.experience_match,
+       qr.seniority_match,
+       qr.structure_valid,
+       qr.gaps,
+       qr.raw_feedback,
+       qr.created_at,
+       rv.version_number
+     FROM qa_reviews qr
+     JOIN resume_versions rv ON rv.version_id = qr.version_id
+     WHERE rv.job_id = $1
+     ORDER BY qr.created_at DESC`,
+    [id],
+  )
+
+  return c.json(result.rows)
+})
+
+/**
  * GET /jobs/:id/resumes
  *
  * List stored resume versions for a job, ordered by iteration.
@@ -399,8 +440,10 @@ jobs.get('/:id', async (c) => {
   const qaResult = await pool.query(
     `SELECT
        qr.review_id,
+       qr.version_id,
        qr.score,
        qr.passed,
+       qr.score_threshold,
        qr.keyword_match,
        qr.experience_match,
        qr.seniority_match,

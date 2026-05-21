@@ -1,0 +1,106 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: rendure_db_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rendure_user
+      POSTGRES_PASSWORD: rendurepw@123
+      POSTGRES_DB: rendure_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rendure_user -d rendure_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    image: postgres:16-alpine
+    container_name: rendure_migrate_dev
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: rendure_user
+      PGPASSWORD: rendurepw@123
+      PGDATABASE: rendure_db
+    volumes:
+      - ./database:/migrations:ro
+      - ./scripts/migrate.sh:/migrate.sh:ro
+    entrypoint: ["sh", "/migrate.sh"]
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile.dev
+    container_name: rendure_api_dev
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "3002:3002"
+    environment:
+      DATABASE_URL: postgresql://rendure_user:rendurepw%40123@db:5432/rendure_db
+      RENDURE_API_KEY: ${RENDURE_API_KEY:-this_is_the_api_key}
+      PROFILE_ENCRYPTION_KEY: ${PROFILE_ENCRYPTION_KEY:-91CC3417D21B4CECB294E2D5413D3FD6A211EA095D468111F25FCDFDB4A92C29}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      NODE_ENV: development
+    volumes:
+      - ./api/src:/app/src:ro
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: rendure_frontend_dev
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3002
+      VITE_API_KEY: ${RENDURE_API_KEY:-this_is_the_api_key}
+    volumes:
+      - ./frontend/app:/app/app:ro
+
+  agents:
+    build:
+      context: .
+      dockerfile: Dockerfile.agents.dev
+    container_name: rendure_agents_dev
+    profiles:
+      - agents
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://rendure_user:rendurepw%40123@db:5432/rendure_db
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-qwen/qwen3-8b}
+      MODEL_JOB_SCOUT: ${MODEL_JOB_SCOUT:-}
+      MODEL_RESUME_TAILOR: ${MODEL_RESUME_TAILOR:-}
+      MODEL_QUALITY_ANALYST: ${MODEL_QUALITY_ANALYST:-}
+      MODEL_CONFIRMATION: ${MODEL_CONFIRMATION:-}
+      MODEL_ORCHESTRATOR: ${MODEL_ORCHESTRATOR:-}
+      MODEL_FALLBACK: ${MODEL_FALLBACK:-}
+      QA_PASS_THRESHOLD: ${QA_PASS_THRESHOLD:-0.92}
+      MAX_TAILORING_ITERATIONS: ${MAX_TAILORING_ITERATIONS:-4}
+      AGENT_TIMEOUT_SECONDS: ${AGENT_TIMEOUT_SECONDS:-300}
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-5}
+      JINA_API_KEY: ${JINA_API_KEY:-}
+    volumes:
+      - ./resume:/app/resume
+    # Run with: docker compose --profile agents run --rm agents python run_agents.py "<url>"
+
+volumes:
+  postgres_data_dev:

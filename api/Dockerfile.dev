@@ -1,0 +1,25 @@
+FROM node:22-alpine AS api-base
+WORKDIR /app
+
+RUN apk add --no-cache wget python3 py3-pip
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Node dependencies
+COPY api/package.json api/package-lock.json ./
+RUN npm ci
+COPY api/tsconfig.json ./
+COPY api/src/ src/
+
+# Python pipeline code (for spawning agents as subprocess)
+    COPY pyproject.toml uv.lock README.md ./
+    RUN uv sync --frozen --no-dev
+COPY agents/ agents/
+COPY utils/ utils/
+COPY resume/ resume/
+COPY run_agents.py ./
+
+ENV PROJECT_ROOT=/app
+EXPOSE 3002
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
+  CMD wget -qO- http://localhost:3002/ | grep -q ok || exit 1
+CMD ["npx", "tsx", "watch", "src/index.ts"]

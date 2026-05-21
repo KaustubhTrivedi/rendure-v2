@@ -1,5 +1,6 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
+import { cors } from 'hono/cors'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -27,6 +28,12 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 export const app = new Hono()
+
+// CORS — allow frontend dev server and any configured origin
+app.use('*', cors({
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  credentials: true,
+}))
 
 // Global request logging — also covers the healthcheck.
 app.use('*', loggerMiddleware())

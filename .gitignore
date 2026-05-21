@@ -11,6 +11,8 @@ wheels/
 
 # Environment variables
 .env
+.env.*
+!.env.*.example
 
 # Tokens
 tokens.json
@@ -19,6 +21,12 @@ tokens.json
 resume/resume.pdf
 api/.cache/resumes/
 output/
+
+# JavaScript dependencies and generated router/build output
+node_modules/
+frontend/node_modules/
+api/node_modules/
+frontend/.react-router/
 
 # Dev Stuff
 .agent
