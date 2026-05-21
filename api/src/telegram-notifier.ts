@@ -4,7 +4,10 @@ import type { TelegramTerminalJob } from './telegram.js'
 import {
   formatTelegramTerminalMessage,
   sendTelegramMessage,
+  isTelegramBotConfigured,
 } from './telegram.js'
+import { listenForPipelineEvents } from './pg-listener.js'
+import { logger } from './middleware/logger.js'
 
 /**
  * Query the canonical current state for a job and, if the job is in a terminal
@@ -72,4 +75,76 @@ export async function notifyTerminalJob(
   }
 
   return { sent: false, reason: sendResult.error }
+}
+
+// ── Terminal notifier lifecycle ──────────────────────────────────────────────
+
+/**
+ * In-memory set of job IDs for which a terminal notification has already
+ * been sent in this process. Guards against duplicate Telegram messages
+ * when multiple pipeline_events arrive for the same terminal transition.
+ */
+const sentJobs = new Set<string>()
+
+/**
+ * Reset the in-memory sent-job set. Only needed in tests.
+ */
+export function __resetSentJobsForTests(): void {
+  sentJobs.clear()
+}
+
+export interface TelegramTerminalNotifier {
+  close(): Promise<void>
+}
+
+/**
+ * Start listening for pipeline events and send Telegram notifications for
+ * terminal-state job transitions.
+ *
+ * If the Telegram bot token is not configured (`isTelegramBotConfigured()`
+ * returns false), this returns a no-op notifier without opening a database
+ * listener. This makes startup safe when Telegram is not set up.
+ *
+ * Errors in the listener or notification pipeline are caught and logged.
+ * They never crash the server.
+ */
+export async function startTelegramTerminalNotifier(): Promise<TelegramTerminalNotifier> {
+  if (!isTelegramBotConfigured()) {
+    logger.warn({ feature: 'telegram-terminal-notifier' }, 'Telegram bot not configured; terminal notifications disabled.')
+    return { close: async () => {} }
+  }
+
+  const listener = await listenForPipelineEvents(
+    async (notification: { job_id: string; event_id: string }) => {
+      // Process-local duplicate suppression
+      if (sentJobs.has(notification.job_id)) {
+        return
+      }
+      sentJobs.add(notification.job_id)
+
+      try {
+        const result = await notifyTerminalJob(notification.job_id)
+        if (!result.sent) {
+          logger.warn(
+            { job_id: notification.job_id, reason: result.reason },
+            'Terminal notification not sent',
+          )
+        }
+      } catch (err) {
+        logger.error(
+          {
+            job_id: notification.job_id,
+            err: err instanceof Error ? err.message : String(err),
+          },
+          'Terminal notification error',
+        )
+      }
+    },
+  )
+
+  return {
+    close: async () => {
+      await listener.close()
+    },
+  }
 }

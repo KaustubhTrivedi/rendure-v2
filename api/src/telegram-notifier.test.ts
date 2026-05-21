@@ -20,18 +20,31 @@ vi.mock('./middleware/logger.js', () => ({
   },
 }))
 
+vi.mock('./pg-listener.js', () => ({
+  listenForPipelineEvents: vi.fn(),
+}))
+
 // ── Imports after mocks ─────────────────────────────────────────────────────
 
 import { pool } from './db.js'
 import {
   formatTelegramTerminalMessage,
   sendTelegramMessage,
+  isTelegramBotConfigured,
 } from './telegram.js'
-import { notifyTerminalJob } from './telegram-notifier.js'
+import {
+  notifyTerminalJob,
+  startTelegramTerminalNotifier,
+  __resetSentJobsForTests,
+} from './telegram-notifier.js'
+import * as pgListener from './pg-listener.js'
+import { logger } from './middleware/logger.js'
 
 const query = vi.mocked(pool.query)
 const formatMsg = vi.mocked(formatTelegramTerminalMessage)
 const sendMsg = vi.mocked(sendTelegramMessage)
+const listenForPipelineEventsMock = vi.mocked(pgListener.listenForPipelineEvents)
+const isConfigured = vi.mocked(isTelegramBotConfigured)
 
 // ── Shared test data ────────────────────────────────────────────────────────
 
@@ -268,5 +281,154 @@ describe('notifyTerminalJob', () => {
     expect(result).toEqual({ sent: false, reason: 'job_not_found' })
     expect(formatMsg).not.toHaveBeenCalled()
     expect(sendMsg).not.toHaveBeenCalled()
+  })
+})
+
+// ── Tests: startTelegramTerminalNotifier ─────────────────────────────────────
+
+describe('startTelegramTerminalNotifier', () => {
+  let capturedCallback: ((n: { job_id: string; event_id: string }) => void) | null
+  let closeListener: () => Promise<void>
+
+  beforeEach(() => {
+    // Clear call counts only — do NOT clear mock implementations/return values
+    query.mockClear()
+    formatMsg.mockClear()
+    sendMsg.mockClear()
+    isConfigured.mockClear()
+    listenForPipelineEventsMock.mockClear()
+    vi.mocked(logger.warn).mockClear()
+    vi.mocked(logger.error).mockClear()
+
+    __resetSentJobsForTests()
+    capturedCallback = null
+    closeListener = vi.fn().mockResolvedValue(undefined)
+
+    // Default: Telegram IS configured
+    isConfigured.mockReturnValue(true)
+
+    // Capture the onEvent callback so we can fire notifications in tests
+    listenForPipelineEventsMock.mockImplementation(async (cb) => {
+      capturedCallback = cb as (n: { job_id: string; event_id: string }) => void
+      return { close: closeListener }
+    })
+
+    // Default query works
+    query.mockResolvedValue({
+      rows: [buildRow()],
+      rowCount: 1,
+    } as never)
+    formatMsg.mockReturnValue('Mocked Telegram Message')
+  })
+
+  // ── Registers listener ────────────────────────────────────────────────────
+
+  it('registers listenForPipelineEvents when Telegram is configured', async () => {
+    const notifier = await startTelegramTerminalNotifier()
+
+    expect(listenForPipelineEventsMock).toHaveBeenCalledTimes(1)
+    expect(typeof capturedCallback).toBe('function')
+
+    await notifier.close()
+  })
+
+  // ── Forwards notification to notifyTerminalJob ────────────────────────────
+
+  it('calls notifyTerminalJob when a pipeline notification arrives', async () => {
+    const notifier = await startTelegramTerminalNotifier()
+
+    expect(capturedCallback).not.toBeNull()
+    const p = capturedCallback!({ job_id: 'job-111-222', event_id: 'evt-001' })
+    await p
+
+    expect(query).toHaveBeenCalled()
+    expect(sendMsg).toHaveBeenCalledTimes(1)
+    expect(sendMsg).toHaveBeenCalledWith('chat-999', 'Mocked Telegram Message')
+
+    await notifier.close()
+  })
+
+  // ── Duplicate suppression ────────────────────────────────────────────────
+
+  it('does not send duplicate messages for the same job_id within one process', async () => {
+    const notifier = await startTelegramTerminalNotifier()
+
+    // Fire first notification
+    const p1 = capturedCallback!({ job_id: 'job-111-222', event_id: 'evt-001' })
+    await p1
+
+    expect(query).toHaveBeenCalledTimes(1)
+    expect(sendMsg).toHaveBeenCalledTimes(1)
+
+    // Fire second notification (same job_id) — should be suppressed
+    const p2 = capturedCallback!({ job_id: 'job-111-222', event_id: 'evt-002' })
+    await p2
+
+    expect(query).toHaveBeenCalledTimes(1)
+    expect(sendMsg).toHaveBeenCalledTimes(1)
+
+    await notifier.close()
+  })
+
+  it('sends separate messages for different job_ids', async () => {
+    const notifier = await startTelegramTerminalNotifier()
+
+    // Fire for two different jobs
+    const p1 = capturedCallback!({ job_id: 'job-aaa', event_id: 'evt-001' })
+    await p1
+    const p2 = capturedCallback!({ job_id: 'job-bbb', event_id: 'evt-002' })
+    await p2
+
+    expect(query).toHaveBeenCalledTimes(2)
+    expect(sendMsg).toHaveBeenCalledTimes(2)
+
+    await notifier.close()
+  })
+
+  // ── No-op when unconfigured ───────────────────────────────────────────────
+
+  it('returns a no-op notifier without registering listener when Telegram is not configured', async () => {
+    isConfigured.mockReturnValue(false)
+
+    const notifier = await startTelegramTerminalNotifier()
+
+    // No listener was registered
+    expect(listenForPipelineEventsMock).not.toHaveBeenCalled()
+    // Warning was logged (if logger.warn was called)
+    expect(logger.warn).toHaveBeenCalled()
+
+    // close() resolves cleanly without error
+    await notifier.close()
+  })
+
+  // ── Errors do not crash ──────────────────────────────────────────────────
+
+  it('catches and logs notifyTerminalJob errors without crashing', async () => {
+    query.mockRejectedValue(new Error('DB connection lost'))
+
+    const notifier = await startTelegramTerminalNotifier()
+
+    const p = capturedCallback!({ job_id: 'job-111-222', event_id: 'evt-001' })
+    await p
+    await new Promise((r) => setTimeout(r, 5))
+
+    // The error was caught and logged
+    expect(logger.error).toHaveBeenCalled()
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ job_id: 'job-111-222' }),
+      expect.any(String),
+    )
+
+    await notifier.close()
+  })
+
+  // ── close() cleans up ────────────────────────────────────────────────────
+
+  it('close() calls the underlying listener close', async () => {
+    const notifier = await startTelegramTerminalNotifier()
+
+    await notifier.close()
+
+    expect(closeListener).toHaveBeenCalledTimes(1)
   })
 })
