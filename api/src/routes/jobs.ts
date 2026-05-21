@@ -1,9 +1,8 @@
 import { Hono } from 'hono'
-import { spawn } from 'child_process'
-import { resolve } from 'path'
 import { streamSSE } from 'hono/streaming'
 import { pool } from '../db.js'
 import { httpError } from '../errors.js'
+import { submitJobUrl } from '../job-submission.js'
 import {
   RenderCvFailedError,
   RenderCvTimeoutError,
@@ -15,21 +14,15 @@ import { listenForPipelineEvents } from '../pg-listener.js'
 
 const jobs = new Hono()
 
-// Absolute path to project root (api/ is one level down)
-const PROJECT_ROOT = resolve(import.meta.dirname, '..', '..', '..')
-
-function statusUrl(jobId: string) {
-  return `/jobs/${jobId}/status`
-}
-
 /**
  * POST /jobs
  *
  * Submit a job posting URL to the pipeline.
- * Spawns the Python orchestrator as a detached subprocess and returns immediately.
+ * Delegates validation, duplicate check, INSERT, subprocess spawn
+ * to the shared `submitJobUrl` helper.
  *
  * Body: { "url": "https://..." }
- * Response 202: { "job_id": "<uuid>", "status": "new" }
+ * Response 202: { "job_id": "<uuid>", "status": "new", "status_url": "/jobs/<id>/status" }
  * Response 409: URL already submitted
  */
 jobs.post('/', async (c) => {
@@ -40,70 +33,15 @@ jobs.post('/', async (c) => {
   }
 
   const url = body.url.trim()
+  const result = await submitJobUrl(url)
 
-  // Basic URL validation
-  try {
-    new URL(url)
-  } catch {
-    return httpError(c, 400, 'bad_request', 'url must be a valid URL.')
+  if (result.statusCode === 202 || result.statusCode === 409) {
+    return c.json(result.body, result.statusCode as 200)
   }
 
-  // Check for duplicate — the DB has a partial unique index on job_url
-  const existing = await pool.query(
-    `SELECT job_id, status FROM jobs WHERE job_url = $1`,
-    [url]
-  )
-  if (existing.rows.length > 0) {
-    const existingJob = existing.rows[0]
-    return c.json(
-      {
-        error: 'This URL has already been submitted.',
-        job_id: existingJob.job_id,
-        status: existingJob.status,
-        status_url: statusUrl(existingJob.job_id),
-      },
-      409
-    )
-  }
-
-  // Pre-insert the job row so we can return a job_id immediately.
-  // The orchestrator will pick up from status='new' and advance from there.
-  const insert = await pool.query(
-    `INSERT INTO jobs (job_url, status) VALUES ($1, 'new') RETURNING job_id`,
-    [url]
-  )
-  const job_id: string = insert.rows[0].job_id
-
-  // Spawn the pipeline detached — we don't wait for it to finish
-  const child = spawn(
-    'uv',
-    ['run', 'python', 'run_agents.py', url, '--job-id', job_id],
-    {
-      cwd: PROJECT_ROOT,
-      detached: true,
-      stdio: 'ignore',
-      env: { ...process.env },
-    }
-  )
-  child.unref()
-
-  child.on('error', async (error) => {
-    try {
-      await pool.query(
-        `UPDATE jobs SET status = 'error', updated_at = NOW() WHERE job_id = $1`,
-        [job_id]
-      )
-      await pool.query(
-        `INSERT INTO pipeline_events (job_id, event_type, agent_name, detail, metadata)
-         VALUES ($1, 'pipeline_error', 'api', $2, $3)`,
-        [job_id, `Failed to spawn pipeline worker: ${error.message}`, { reason: error.message }]
-      )
-    } catch {
-      // The request has already returned; DB write failures are not recoverable here.
-    }
+  return httpError(c, result.statusCode, result.errorCode, result.title, {
+    detail: result.detail,
   })
-
-  return c.json({ job_id, status: 'new', status_url: statusUrl(job_id) }, 202)
 })
 
 /**
