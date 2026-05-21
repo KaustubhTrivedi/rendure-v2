@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Complete Backend
-status: Phase 4 Plan 03 complete
-stopped_at: Plan 03 (Telegram webhook route) complete
-last_updated: "2026-05-21T16:46:00.000Z"
+status: Phase 4 Plan 04 complete — Phase 4 complete
+stopped_at: Plan 04 (Terminal notification listener) complete
+last_updated: "2026-05-21T16:57:00.000Z"
 last_activity: 2026-05-21
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 10
-  completed_plans: 10
+  completed_phases: 4
+  total_plans: 13
+  completed_plans: 13
   percent: 100
 ---
 
@@ -21,17 +21,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** A job seeker pastes a URL and gets back a tailored, high-quality resume without touching a single line of their resume themselves.
-**Current focus:** Phase 4 — Telegram Bot Integration (not started)
+**Current focus:** Phase 4 — Telegram Bot Integration (complete)
 
 ## Current Position
 
-Phase: 04 (telegram-bot-integration) — IN PROGRESS
-Plan: 03 complete
-Status: Plan 03 (Telegram webhook route) executed. Plan 04 (Terminal notification listener) can start.
-Last activity: 2026-05-21 -- Plan 04-03 executed (3 tasks, TDD, 11 route tests + 4 app tests, build clean)
+Phase: 04 (telegram-bot-integration) — COMPLETE
+Plan: 04 complete
+Status: All Phase 4 plans (01–04) executed. Telegram bot integration complete: shared job submission helper, message formatting and send client, secret-authenticated webhook route, and terminal-state notification listener.
+Last activity: 2026-05-21 -- Plan 04-04 executed (3 tasks, TDD, 18 notifier tests + 8 app tests, build clean)
 
 ⚠ Pending manual step: apply `database/002_telegram.sql` migration to the running DB.
    Run: `PGPASSWORD='rendurepw@123' psql -h db.jobs-tracker.orb.local -U rendure_user -d rendure_db -f database/002_telegram.sql`
+
+⚠ Pending manual step: apply `database/003_pipeline_events_notify.sql` migration to the running DB.
+   Run: `PGPASSWORD='rendurepw@123' psql -h db.jobs-tracker.orb.local -U rendure_user -d rendure_db -f database/003_pipeline_events_notify.sql`
 
 ## Performance Metrics
 
@@ -40,6 +43,7 @@ Last activity: 2026-05-21 -- Plan 04-03 executed (3 tasks, TDD, 11 route tests +
 | 04-01   | 01   | 4 min    | 3     | 3     | 37    |
 | 04-02   | 02   | 12 min   | 3     | 2     | 9     |
 | 04-03   | 03   | 2 min    | 3     | 4     | 19    |
+| 04-04   | 04   | 9 min    | 3     | 4     | 18    |
 
 ## Accumulated Context
 
@@ -61,6 +65,10 @@ Last activity: 2026-05-21 -- Plan 04-03 executed (3 tasks, TDD, 11 route tests +
 - 2026-05-21: Middleware composition: config gate (503) runs before secret gate (401) — missing env vars caught before header check
 - 2026-05-21: URL extraction uses /https?:\/\/[^\s]+/g regex — simple but sufficient for Telegram message parsing
 - 2026-05-21: Zero or multiple URLs both return friendly help without calling submitJobUrl
+- 2026-05-21: pg notification treated as wake-up only — notifyTerminalJob re-queries canonical job/profile/QA rows with parameterized SQL (T-04-04-03 mitigation)
+- 2026-05-21: Recipient comes only from `user_profile.notify_telegram_chat_id`, never from incoming webhook payloads (T-04-04-02 mitigation)
+- 2026-05-21: Duplicate suppression via module-scoped Set to handle multiple NOTIFY events for the same terminal transition
+- 2026-05-21: Missing Telegram config returns no-op notifier (no DB listener, no crash) — same non-fatal pattern as RenderCV probe (TELEGRAM-05)
 
 ### Decisions (carry-over still relevant)
 

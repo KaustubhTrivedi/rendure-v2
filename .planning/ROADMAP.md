@@ -21,7 +21,7 @@ The existing Hono/TypeScript backend (`api/`) already handles job submission, li
 - [x] **Phase 1: Auth & Profile Completion** — API key middleware, PATCH /profile, error/logging conventions
 - [x] **Phase 2: SSE Pipeline Progress** — Real-time GET /jobs/:id/events with replay, keepalive, terminal-state close
 - [x] **Phase 3: Resume Retrieval & PDF** — Markdown endpoints, RenderCV PDF rendering with disk cache
-- [ ] **Phase 4: Telegram Bot Integration** — Webhook receiver, signed-update verification, terminal-state notifications
+- [x] **Phase 4: Telegram Bot Integration** — Webhook receiver, signed-update verification, terminal-state notifications
 
 ## Phase Details
 
@@ -90,9 +90,9 @@ Plans:
 **Plans**: 4 plans
 Plans:
 - [x] 04-01-PLAN.md — Shared job submission helper for `/jobs` and Telegram URL intake
-- [ ] 04-02-PLAN.md — Telegram message formatting, Markdown escaping, and Bot API send client
-- [ ] 04-03-PLAN.md — `/telegram/webhook` secret-authenticated URL submission route
-- [ ] 04-04-PLAN.md — Terminal pipeline event Telegram notifications and startup wiring
+- [x] 04-02-PLAN.md — Telegram message formatting, Markdown escaping, and Bot API send client
+- [x] 04-03-PLAN.md — `/telegram/webhook` secret-authenticated URL submission route
+- [x] 04-04-PLAN.md — Terminal pipeline event Telegram notifications and startup wiring
 **UI hint**: no
 
 ---

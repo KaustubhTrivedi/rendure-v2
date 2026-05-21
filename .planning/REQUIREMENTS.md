@@ -41,9 +41,9 @@ Previous milestone (v2.0) is superseded — see `.planning/MILESTONES.md`.
 
 - [x] **TELEGRAM-01**: `POST /telegram/webhook` accepts Telegram bot updates (text messages with URLs) and submits them to the pipeline as a new job
 - [ ] **TELEGRAM-02**: Webhook signature/secret verification rejects unauthenticated Telegram updates (using Telegram's `secret_token`)
-- [ ] **TELEGRAM-03**: When a job reaches a terminal status, the backend sends a Telegram message to the configured chat with status, QA score, and a link/handle to retrieve the resume
-- [ ] **TELEGRAM-04**: The Telegram chat ID for notifications is stored on `user_profile.notify_telegram_chat_id` (set via `PATCH /profile`)
-- [ ] **TELEGRAM-05**: Telegram bot token is read from `TELEGRAM_BOT_TOKEN` in `.env`; missing token disables Telegram features (does not crash the server)
+- [x] **TELEGRAM-03**: When a job reaches a terminal status, the backend sends a Telegram message to the configured chat with status, QA score, and a link/handle to retrieve the resume
+- [x] **TELEGRAM-04**: The Telegram chat ID for notifications is stored on `user_profile.notify_telegram_chat_id` (set via `PATCH /profile`)
+- [x] **TELEGRAM-05**: Telegram bot token is read from `TELEGRAM_BOT_TOKEN` in `.env`; missing token disables Telegram features (does not crash the server)
 
 ### OPS — Operational concerns for self-hosting
 
