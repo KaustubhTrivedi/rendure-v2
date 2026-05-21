@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import jobs from './routes/jobs.js'
 import profile from './routes/profile.js'
+import telegram from './routes/telegram.js'
 import { logger, loggerMiddleware } from './middleware/logger.js'
 import { apiKeyMiddleware, assertApiKeyConfigured } from './middleware/apiKey.js'
 import { checkRenderCvAvailable } from './resume-render.js'
@@ -37,6 +38,7 @@ app.get('/', (c) => {
   return c.json({ ok: true, version: pkg.version })
 })
 
+app.route('/telegram', telegram)
 app.route('/profile', profile)
 app.route('/jobs', jobs)
 

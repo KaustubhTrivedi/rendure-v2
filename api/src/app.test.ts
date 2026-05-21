@@ -6,6 +6,10 @@ vi.mock('./db.js', () => ({
   },
 }))
 
+vi.mock('./job-submission.js', () => ({
+  submitJobUrl: vi.fn(),
+}))
+
 beforeAll(() => {
   process.env.RENDURE_API_KEY = 'test-key'
 })
@@ -60,5 +64,53 @@ describe('app', () => {
       headers: { 'X-API-Key': 'wrong' },
     })
     expect(res.status).toBe(401)
+  })
+
+  it('POST /telegram does not require X-API-Key (uses Telegram secret)', async () => {
+    const { submitJobUrl } = await import('./job-submission.js')
+    vi.mocked(submitJobUrl).mockResolvedValue({
+      statusCode: 202,
+      body: { job_id: 'job-123', status: 'new', status_url: '/jobs/job-123/status' },
+    })
+
+    // Set env vars for the telegram route
+    process.env.TELEGRAM_BOT_TOKEN = 'bot:token'
+    process.env.TELEGRAM_WEBHOOK_SECRET = 'webhook-secret'
+
+    const { app } = await import('./index.js')
+    const res = await app.request('/telegram', {
+      method: 'POST',
+      headers: { 'X-Telegram-Bot-Api-Secret-Token': 'webhook-secret' },
+      body: JSON.stringify({ message: { text: 'https://example.com/job', chat: { id: 123 } } }),
+    })
+
+    expect(res.status).not.toBe(401)
+    delete process.env.TELEGRAM_BOT_TOKEN
+    delete process.env.TELEGRAM_WEBHOOK_SECRET
+  })
+
+  it('POST /telegram without Telegram secret returns 401', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = 'bot:token'
+    process.env.TELEGRAM_WEBHOOK_SECRET = 'webhook-secret'
+
+    const { app } = await import('./index.js')
+    const res = await app.request('/telegram', {
+      method: 'POST',
+      body: JSON.stringify({ message: { text: 'hello', chat: { id: 123 } } }),
+    })
+
+    expect(res.status).toBe(401)
+    delete process.env.TELEGRAM_BOT_TOKEN
+    delete process.env.TELEGRAM_WEBHOOK_SECRET
+  })
+
+  it('/jobs/* and /profile/* still return 401 without X-API-Key when telegram route is mounted', async () => {
+    const { app } = await import('./index.js')
+
+    const jobsRes = await app.request('/jobs/anything/status')
+    expect(jobsRes.status).toBe(401)
+
+    const profileRes = await app.request('/profile')
+    expect(profileRes.status).toBe(401)
   })
 })
