@@ -1,104 +1,252 @@
 # Rendure
 
-Open-source, self-hosted resume tailoring. The app no longer depends on third-party auth.
+Rendure is a self-hosted resume tailoring service. You give it a job posting URL, it scrapes the posting, generates a tailored resume, runs a QA pass, and stores every run in Postgres for review.
 
-## How It Works
+Rendure does not submit applications. It prepares resume versions and QA notes so you can review the output and apply yourself.
 
-- The web app provisions a single local profile on first load.
-- Users complete onboarding with their resume data and their own `OpenRouter` API key.
-- `Jina` remains optional for scraping job pages more reliably.
-- Job runs are still stored per profile, but the default open-source flow uses one local profile instead of sign-in.
+## What You Get
 
-## Local Setup
+- Web dashboard for submitting jobs and tracking pipeline progress.
+- Single-user local profile with encrypted OpenRouter API key storage.
+- Python agent pipeline for job scraping, resume tailoring, QA, and confirmation.
+- Postgres-backed audit trail for jobs, resume versions, QA reviews, and pipeline events.
+- Live job-detail updates through server-sent events.
+- RenderCV PDF downloads for approved resume versions.
+- Optional Telegram webhook submission and completion notifications.
 
-1. Create `.env` with your database and Redis settings.
-2. Start the stack with `docker compose up`.
-3. Open `http://localhost:5173`.
-4. Finish onboarding and paste your `OpenRouter` API key into the profile form before importing a resume or submitting jobs.
+## Quick Start With Docker
 
-## Production Docker Compose
-
-The production stack assumes the host only has Docker with the Compose plugin.
+Docker Compose is the recommended way to run Rendure.
 
 ```bash
 cp .env.production.example .env
-# edit .env and replace every changeme value
+# Edit .env and replace every placeholder secret.
 docker compose up -d --build
 ```
 
-The stack starts Postgres, runs SQL migrations from `database/`, starts the API, and
-serves the frontend on `${HTTP_PORT:-80}`. Postgres is private to the Docker network.
+Open `http://localhost` unless you changed `HTTP_PORT`.
 
-Run an agent job manually with:
+On first load, complete onboarding with your name and OpenRouter API key. The key is stored in the local Postgres database encrypted with `PROFILE_ENCRYPTION_KEY`.
 
-```bash
-docker compose --profile agents run --rm agents "https://jobs.example.com/posting/12345"
-```
+For live pipeline runs, also set `OPENROUTER_API_KEY` in `.env`. The current Python agents read this environment variable directly.
 
-## Required Keys
+## Development Setup
 
-- `OpenRouter` is required for resume parsing and tailoring.
-- `Jina` is optional and is only used when configured.
-
-## Resume Retrieval API
-
-Resume versions are available through the centralized API:
-
-- `GET /jobs/:id/resumes`
-- `GET /jobs/:id/resume/:version_id`
-- `GET /jobs/:id/resume/:version_id/pdf`
-
-All resume retrieval endpoints require `X-API-Key`. PDF downloads require the host
-`rendercv` CLI; repeated downloads are cached under `api/.cache/resumes/` by default.
-Set `RESUME_PDF_CACHE_DIR`, `RESUME_PDF_RENDER_CONCURRENCY`, and
-`RESUME_PDF_RENDER_TIMEOUT_MS` to tune the cache path and render behavior.
-
-## Telegram Bot Integration
-
-The server sends Telegram notifications when a pipeline run reaches a terminal state (approved, low_match, or error).
-
-### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `TELEGRAM_BOT_TOKEN` | Yes (for bot features) | Telegram bot token from [@BotFather](https://t.me/BotFather) |
-| `TELEGRAM_WEBHOOK_SECRET` | Yes (for webhook) | Arbitrary secret string; used to authenticate incoming webhook requests |
-
-If `TELEGRAM_BOT_TOKEN` is not set, the Telegram terminal notifier starts as a no-op without crashing. All bot-related routes return 503.
-
-### Webhook Setup
-
-Set the Telegram bot webhook to your server's `/telegram` endpoint:
+Use the dev Compose file when working locally:
 
 ```bash
-curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
-  -d "url=https://your-server.com/telegram" \
-  -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>"
+cp .env.dev.example .env.dev
+docker compose -f docker-compose.dev.yml --env-file .env.dev up --build
 ```
 
-The server validates every incoming webhook request using the `X-Telegram-Bot-Api-Secret-Token` header. Requests without a matching secret token receive a 401 response.
+Dev ports:
 
-### Webhook Endpoint
+- Frontend: `http://localhost:5173`
+- API: `http://localhost:3002`
+- Postgres: `localhost:5432`
 
-**`POST /telegram`**
+Useful local commands:
 
-This endpoint does **not** require `X-API-Key`. It authenticates via the Telegram secret token header instead. Users send a job posting URL in a Telegram message, and the server submits it to the pipeline.
+```bash
+uv sync
+uv run python run_agents.py "https://jobs.example.com/posting/12345" --verbose
 
-### Terminal Notifications
+cd api && npm run test
+cd frontend && npm run typecheck
+```
 
-When a pipeline run reaches a terminal state, the server sends a notification to the configured Telegram chat. To enable notifications:
+## Required Configuration
 
-1. Set `notify_telegram_chat_id` via `PATCH /profile` (set to the chat ID from your Telegram bot interaction).
-2. Set `notify_telegram_chat_id` to `null` (or omit it) to disable Telegram notifications per-profile.
+Core settings:
 
-The user_profile column `notify_telegram_chat_id` controls the recipient. It is never inferred from incoming webhook messages — only the persisted profile value is used for outbound notifications.
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | Yes | Postgres connection string for API and agents |
+| `RENDURE_API_KEY` | Yes | Shared API key for `/jobs/*` and `/profile/*` |
+| `PROFILE_ENCRYPTION_KEY` | Yes | 64-character hex key for encrypting profile secrets |
+| `OPENROUTER_API_KEY` | Yes for pipeline | API key used by Python agents |
+| `OPENROUTER_MODEL` | No | Global default model |
+| `JINA_API_KEY` | No | Optional higher-limit Jina Reader key |
 
-Notification types:
-- **approved** — Includes QA score, company/role, and API paths for resume retrieval (`/jobs/:id/resume/:version_id` and `/jobs/:id/resume/:version_id/pdf`).
-- **low_match** — Includes QA score and key high-severity QA gaps.
-- **error** — Safe plain message with job ID, no stack traces.
+Pipeline tuning:
 
-## Notes
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `QA_PASS_THRESHOLD` | `0.92` | Minimum QA score to approve |
+| `MAX_TAILORING_ITERATIONS` | `4` | Max tailor and QA loops |
+| `AGENT_TIMEOUT_SECONDS` | `300` | Agent wait timeout |
+| `POLL_INTERVAL_SECONDS` | `5` | DB polling interval |
 
-- Existing legacy auth-related database migrations are still present for compatibility with older local data, but the runtime no longer uses Clerk.
-- The worker now loads model keys from the saved local profile for each job run.
+Optional per-agent model overrides:
+
+```dotenv
+MODEL_JOB_SCOUT=
+MODEL_RESUME_TAILOR=
+MODEL_QUALITY_ANALYST=
+MODEL_CONFIRMATION=
+MODEL_ORCHESTRATOR=
+MODEL_FALLBACK=
+```
+
+PDF rendering:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `RESUME_PDF_CACHE_DIR` | `api/.cache/resumes` locally | Cached rendered PDFs |
+| `RESUME_PDF_RENDER_CONCURRENCY` | `2` | Concurrent RenderCV jobs |
+| `RESUME_PDF_RENDER_TIMEOUT_MS` | `30000` | Render timeout |
+
+## How The Pipeline Works
+
+The main CLI entry point is:
+
+```bash
+uv run python run_agents.py "https://jobs.example.com/posting/12345"
+```
+
+The web API uses the same pipeline. `POST /jobs` inserts a `jobs` row, returns a `job_id`, then starts:
+
+```bash
+uv run python run_agents.py "<url>" --job-id "<job_id>"
+```
+
+Agent flow:
+
+1. `orchestrator` validates the URL, creates or reuses the job row, and coordinates all agents.
+2. `job_scout` scrapes the posting through Jina Reader and writes structured job data.
+3. `resume_tailor` reads `resume/resume.md` on the first pass, then writes generated content to `resume_versions`.
+4. `quality_analyst` scores the generated version and writes an immutable `qa_reviews` row.
+5. If QA fails and iterations remain, the orchestrator loops back to tailoring.
+6. If QA passes, `confirmation` verifies the approved record and the API exposes the resume.
+
+Generated resume versions are stored in the database. The current renderer expects RenderCV YAML content even though the legacy column name is `latex_source`.
+
+## Web App
+
+Frontend routes:
+
+- `/onboarding` creates the local profile and stores the OpenRouter key.
+- `/` lists jobs, submits URLs, and shows status summaries.
+- `/jobs/:id` shows pipeline stages, live event feed, QA summary, and resume links.
+- `/jobs/:id/resume/:vid` previews a stored resume version.
+- `/jobs/:id/qa/:rid` shows QA details and gap feedback.
+- `/settings` edits profile preferences, model choice, QA threshold, max iterations, and Telegram chat ID.
+
+Some UI controls are currently placeholders, including dashboard search, some resume toolbar actions, QA regenerate/fix actions, and settings test notification/reset buttons.
+
+## API
+
+Health:
+
+```bash
+curl http://localhost:3002/
+```
+
+Protected routes require `X-API-Key: $RENDURE_API_KEY`.
+
+Common endpoints:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/jobs` | Submit `{ "url": "https://..." }` |
+| `GET` | `/jobs` | List jobs |
+| `GET` | `/jobs/:id` | Full job detail |
+| `GET` | `/jobs/:id/status` | Compact status |
+| `GET` | `/jobs/:id/events` | SSE pipeline events |
+| `GET` | `/jobs/:id/qa` | QA review history |
+| `GET` | `/jobs/:id/resumes` | Resume version list |
+| `GET` | `/jobs/:id/resume/:version_id` | Raw stored resume source |
+| `GET` | `/jobs/:id/resume/:version_id/pdf` | Rendered PDF |
+| `POST` | `/profile` | Create local profile |
+| `PATCH` | `/profile` | Update profile preferences |
+| `PUT` | `/profile/api-key` | Store encrypted OpenRouter key |
+| `GET` | `/profile/models` | List OpenRouter models using stored key |
+
+Example:
+
+```bash
+curl -X POST http://localhost:3002/jobs \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $RENDURE_API_KEY" \
+  -d '{"url":"https://jobs.example.com/posting/12345"}'
+```
+
+## Database And Migrations
+
+The schema lives in `database/schema.sql`. Compose runs `scripts/migrate.sh`, which applies `schema.sql` first, then sorted numbered migrations under `database/`, recording applied filenames in `schema_migrations`.
+
+Important tables:
+
+- `jobs`: central job state and extracted posting details.
+- `job_skills`: normalized required and nice-to-have skills.
+- `resume_versions`: generated resume versions.
+- `qa_reviews`: immutable QA evaluations.
+- `pipeline_events`: audit log and live event source.
+- `user_profile`: single local profile and encrypted provider key.
+- `allowed_transitions`: valid pipeline status transitions.
+
+Triggers keep `jobs.iteration_count` and `jobs.qa_score` synced from generated versions and QA reviews.
+
+## PDF Rendering
+
+The API renders PDFs on demand:
+
+```text
+GET /jobs/:id/resume/:version_id/pdf
+```
+
+Rendering uses the `rendercv` CLI and caches PDFs by resume version ID. In Docker, the API image includes RenderCV and stores cached PDFs in the `resume_pdf_cache` volume.
+
+The CLI orchestrator also attempts a Docker-based RenderCV build after approval and exports files under `output/<company>_<role>/`. If rendering fails, the generated source remains in the database.
+
+## Telegram
+
+Telegram is optional.
+
+Set these environment variables:
+
+```dotenv
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_WEBHOOK_SECRET=
+```
+
+Set the webhook:
+
+```bash
+curl -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
+  -d "url=https://your-domain.example/telegram" \
+  -d "secret_token=${TELEGRAM_WEBHOOK_SECRET}"
+```
+
+Then set your chat ID in the app settings or through:
+
+```bash
+curl -X PATCH http://localhost:3002/profile \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $RENDURE_API_KEY" \
+  -d '{"notify_telegram_chat_id":"123456789"}'
+```
+
+Inbound Telegram messages can submit a single job URL. Outbound notifications are sent when a job reaches `approved`, `low_match`, or `error`.
+
+## Production Notes
+
+- Production Compose exposes only the frontend on `${HTTP_PORT:-80}`. Postgres stays private.
+- Nginx proxies `/api/` to the API and injects `X-API-Key`.
+- `VITE_API_KEY` is embedded in the browser bundle, so this is a self-hosted/local trust model, not strong public multi-tenant authentication.
+- Prompt traces and pipeline events can include job description and resume content. Treat the database as sensitive.
+- Duplicate job URLs return the existing job instead of starting a new run.
+- Some job sites block scraping or URL validation. Those runs end in `error` with details in `pipeline_events`.
+
+## Repository Map
+
+```text
+agents/                 Python pipeline agents
+api/                    Hono TypeScript API
+frontend/               React Router frontend
+database/               Base schema and migrations
+resume/resume.md        Base resume source used for first tailoring pass
+scripts/migrate.sh      Idempotent migration runner
+docker-compose.yml      Production stack
+docker-compose.dev.yml  Development stack
+```
