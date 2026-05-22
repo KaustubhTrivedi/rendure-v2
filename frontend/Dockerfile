@@ -18,7 +18,7 @@ RUN npm run build
 
 FROM nginx:1.27-alpine AS runtime
 COPY --from=build /app/build/client /usr/share/nginx/html
-COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend/nginx.conf.template /etc/nginx/templates/default.conf.template
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --retries=5 \
   CMD wget -qO- http://localhost/ >/dev/null || exit 1

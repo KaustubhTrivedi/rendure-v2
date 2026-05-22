@@ -3,9 +3,9 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-rendure}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-      POSTGRES_DB: ${POSTGRES_DB:-rendure}
+      POSTGRES_USER: ${POSTGRES_USER:-rendure_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rendurepw@123}
+      POSTGRES_DB: ${POSTGRES_DB:-rendure_db}
     volumes:
       - rendure_db_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,9 +24,9 @@ services:
     environment:
       PGHOST: db
       PGPORT: "5432"
-      PGUSER: ${POSTGRES_USER:-rendure}
-      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-      PGDATABASE: ${POSTGRES_DB:-rendure}
+      PGUSER: ${POSTGRES_USER:-rendure_user}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-rendurepw@123}
+      PGDATABASE: ${POSTGRES_DB:-rendure_db}
     volumes:
       - ./database:/migrations:ro
       - ./scripts/migrate.sh:/migrate.sh:ro
@@ -41,9 +41,9 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-rendure}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-rendure}
-      RENDURE_API_KEY: ${RENDURE_API_KEY:?RENDURE_API_KEY is required}
-      PROFILE_ENCRYPTION_KEY: ${PROFILE_ENCRYPTION_KEY:?PROFILE_ENCRYPTION_KEY is required}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://rendure_user:rendurepw%40123@db:5432/rendure_db}
+      RENDURE_API_KEY: ${RENDURE_API_KEY:-this_is_the_api_key}
+      PROFILE_ENCRYPTION_KEY: ${PROFILE_ENCRYPTION_KEY:-91CC3417D21B4CECB294E2D5413D3FD6A211EA095D468111F25FCDFDB4A92C29}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
@@ -71,7 +71,9 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         VITE_API_URL: /api
-        VITE_API_KEY: ${RENDURE_API_KEY:?RENDURE_API_KEY is required}
+        VITE_API_KEY: ${RENDURE_API_KEY:-this_is_the_api_key}
+    environment:
+      RENDURE_API_KEY: ${RENDURE_API_KEY:-this_is_the_api_key}
     restart: unless-stopped
     depends_on:
       api:
@@ -89,8 +91,8 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-rendure}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-rendure}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is required}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://rendure_user:rendurepw%40123@db:5432/rendure_db}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-qwen/qwen3-8b}
       MODEL_JOB_SCOUT: ${MODEL_JOB_SCOUT:-}
       MODEL_RESUME_TAILOR: ${MODEL_RESUME_TAILOR:-}

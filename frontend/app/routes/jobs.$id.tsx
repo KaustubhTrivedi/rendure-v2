@@ -12,11 +12,26 @@ const STAGE_ACTIVE: Record<string, number> = {
   tailoring: 1,
   qa_review: 2,
   qa_failed: 2,
-  low_match: 2,
   approved: 3,
 };
 
 function getStages(status: string) {
+  if (status === "low_match" || status === "qa_failed") {
+    return STAGE_NAMES.map((title, i) => ({
+      num: `0${i + 1}`,
+      title,
+      state: i < 2 ? "done" : i === 2 ? "fail" : "pending",
+      meta: "",
+    }));
+  }
+  if (status === "error") {
+    return STAGE_NAMES.map((title, i) => ({
+      num: `0${i + 1}`,
+      title,
+      state: "fail",
+      meta: "",
+    }));
+  }
   const active = STAGE_ACTIVE[status] ?? 0;
   return STAGE_NAMES.map((title, i) => ({
     num: `0${i + 1}`,
@@ -44,6 +59,10 @@ function formatTime(iso?: string) {
   return new Date(iso).toLocaleTimeString("en-US", { hour12: false });
 }
 
+function isTerminalStatus(status: string) {
+  return status === "approved" || status === "low_match" || status === "error";
+}
+
 export default function JobDetail() {
   const { id } = useParams();
   const [job, setJob] = useState<JobDetail | null>(null);
@@ -65,6 +84,7 @@ export default function JobDetail() {
 
   useEffect(() => {
     if (!id || !job) return;
+    if (isTerminalStatus(job.status)) return;
     const es = api.events.connect(id);
     es.onmessage = (e) => {
       try { setLiveEvents((prev) => [JSON.parse(e.data) as PipelineEvent, ...prev].slice(0, 20)); }
@@ -99,7 +119,7 @@ export default function JobDetail() {
           </a>
         </div>
         <div className="status-badge" role="status" aria-live="polite">
-          {job.status !== "approved" && job.status !== "error" && (
+          {!isTerminalStatus(job.status) && (
             <span className="pulse" aria-hidden="true" />
           )}
           {statusLabel(job.status)}
@@ -148,7 +168,7 @@ export default function JobDetail() {
         {/* Event Feed */}
         <div className="feed" aria-label="Live event feed">
           <div className="feed-head">
-            <div className="ttl">▌ Event Feed · live</div>
+            <div className="ttl">▌ Event Feed · {isTerminalStatus(job.status) ? "complete" : "live"}</div>
             <div className="lights" aria-hidden="true">
               <span />
               <span />
@@ -157,7 +177,7 @@ export default function JobDetail() {
           </div>
           <div className="feed-body">
             {liveEvents.length > 0 ? liveEvents.map((ev, i) => (
-              <div key={ev.event_id ?? i} className={`ev${ev.event_type === "agent_error" ? " err" : " ok"}${i === 0 ? " active-now" : ""}`}>
+              <div key={ev.event_id ?? i} className={`ev${ev.event_type === "agent_error" ? " err" : " ok"}${i === 0 && !isTerminalStatus(job.status) ? " active-now" : ""}`}>
                 <span className="ball" />
                 <span className="agent">{ev.agent_name ?? "system"}</span>
                 <span className="msg">{ev.detail ?? ev.event_type}</span>

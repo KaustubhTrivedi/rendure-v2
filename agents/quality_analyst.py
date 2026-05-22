@@ -37,6 +37,49 @@ def _load_hard_constraints() -> str:
     content = HARD_CONSTRAINTS_PATH.read_text(encoding="utf-8").strip()
     return content
 
+
+def _get_hard_constraints(conn: Any) -> str:
+    return _load_hard_constraints()
+
+
+def _insert_qa_review(
+    cur: Any,
+    version_id: str,
+    composite_score: float,
+    passed: bool,
+    pass_threshold: float,
+    keyword_match: float,
+    experience_match: float,
+    seniority_match: float,
+    structure_valid: bool,
+    gaps: list,
+    raw_feedback: str,
+) -> str:
+    cur.execute(
+        """
+        INSERT INTO qa_reviews (
+            version_id, score, passed, score_threshold,
+            keyword_match, experience_match, seniority_match,
+            structure_valid, gaps, raw_feedback
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s)
+        RETURNING review_id
+        """,
+        (
+            version_id,
+            composite_score,
+            passed,
+            pass_threshold,
+            keyword_match,
+            experience_match,
+            seniority_match,
+            structure_valid,
+            json.dumps(gaps),
+            raw_feedback,
+        ),
+    )
+    return str(cur.fetchone()[0])
+
+
 EVALUATION_PROMPT = """\
 You are a **resume quality assurance and ATS audit system**.
 
@@ -455,16 +498,7 @@ def run(
 
         # ── Step 2: Evaluate via LLM ──────────────────────────────────────────
         _notify(event_callback, "    Loading hard constraints...", None)
-        # Try reading from user_profiles table first (web mode),
-        # fall back to disk file (CLI mode)
-        hard_constraints = None
-        with conn.cursor() as cur:
-            cur.execute("SELECT hard_constraints_md FROM user_profiles LIMIT 1")
-            hc_row = cur.fetchone()
-        if hc_row and hc_row[0]:
-            hard_constraints = hc_row[0]
-        else:
-            hard_constraints = _load_hard_constraints()
+        hard_constraints = _get_hard_constraints(conn)
         hard_constraints_section = (
             f"=== CANDIDATE HARD CONSTRAINTS ===\n{hard_constraints}"
             if hard_constraints else ""
@@ -592,34 +626,19 @@ def run(
         # ── Step 5: Write qa_reviews (INSERT only) ────────────────────────────
         review_id: str
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO qa_reviews (
-                    version_id, score, passed, score_threshold,
-                    keyword_match, experience_match, seniority_match,
-                    structure_valid, gaps, raw_feedback,
-                    ats_parseable, bullet_impact, hook_score, relevance_density
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)
-                RETURNING review_id
-                """,
-                (
-                    version_id,
-                    composite_score,
-                    passed,
-                    pass_threshold,
-                    keyword_match,
-                    experience_match,
-                    seniority_match,
-                    structure_valid,
-                    json.dumps(gaps),
-                    raw_feedback,
-                    ats_parseable,
-                    bullet_impact,
-                    hook_score_val,
-                    relevance_density_val,
-                ),
+            review_id = _insert_qa_review(
+                cur,
+                version_id=version_id,
+                composite_score=composite_score,
+                passed=passed,
+                pass_threshold=pass_threshold,
+                keyword_match=keyword_match,
+                experience_match=experience_match,
+                seniority_match=seniority_match,
+                structure_valid=structure_valid,
+                gaps=gaps,
+                raw_feedback=raw_feedback,
             )
-            review_id = str(cur.fetchone()[0])
 
         # ── Step 6: Determine outcome and update jobs.status ──────────────────
         if passed:

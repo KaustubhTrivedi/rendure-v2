@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from pathlib import Path
 from typing import Any, Callable
 
 import psycopg2
@@ -24,6 +25,9 @@ load_dotenv()
 EventCallback = Callable[[dict], None] | None
 
 MODEL = "qwen/qwen3.5-9b"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+BASE_RESUME_PATH = PROJECT_ROOT / "resume" / "resume.md"
+HARD_CONSTRAINTS_PATH = PROJECT_ROOT / "profile" / "hard_constraints.md"
 
 
 TAILORING_PROMPT = """\
@@ -115,6 +119,32 @@ class AgentError(RuntimeError):
 
 def _get_conn() -> Any:
     return psycopg2.connect(os.environ["DATABASE_URL"])
+
+
+def _load_base_resume() -> str:
+    if not BASE_RESUME_PATH.exists():
+        raise AgentError(f"Base resume not found at {BASE_RESUME_PATH}")
+    content = BASE_RESUME_PATH.read_text(encoding="utf-8").strip()
+    if not content:
+        raise AgentError(f"Base resume is empty at {BASE_RESUME_PATH}")
+    return content
+
+
+def _load_hard_constraints() -> str:
+    if not HARD_CONSTRAINTS_PATH.exists():
+        return (
+            "No additional hard constraints were provided for this profile.\n"
+            "Use only information already present in the base resume.\n"
+            "Do not invent experience, skills, tools, metrics, dates, or credentials."
+        )
+    content = HARD_CONSTRAINTS_PATH.read_text(encoding="utf-8").strip()
+    if not content:
+        return (
+            "No additional hard constraints were provided for this profile.\n"
+            "Use only information already present in the base resume.\n"
+            "Do not invent experience, skills, tools, metrics, dates, or credentials."
+        )
+    return content
 
 
 
@@ -235,23 +265,7 @@ def run(
                 "event_type": "agent_progress", "agent_name": "resume_tailor",
                 "detail": "Reading base resume...",
             })
-            base_resume = None
-            with conn.cursor() as cur:
-                if profile_id:
-                    cur.execute(
-                        "SELECT base_resume_md FROM user_profiles WHERE profile_id = %s",
-                        (profile_id,),
-                    )
-                else:
-                    cur.execute("SELECT base_resume_md FROM user_profiles LIMIT 1")
-                profile_row = cur.fetchone()
-            if profile_row and profile_row[0]:
-                base_resume = profile_row[0]
-            if not base_resume:
-                raise AgentError(
-                    f"Base resume not found in user_profiles"
-                    + (f" for profile_id={profile_id}" if profile_id else " (no profile_id provided)")
-                )
+            base_resume = _load_base_resume()
         else:
             # On retry, read the previous version from the database
             _notify(event_callback, "    Reading previous resume version from DB...", {
@@ -275,24 +289,7 @@ def run(
 
         # ── Step 4: Rewrite via LLM ───────────────────────────────────────────
         _notify(event_callback, "    Loading hard constraints...", None)
-        hard_constraints = None
-        with conn.cursor() as cur:
-            if profile_id:
-                cur.execute(
-                    "SELECT hard_constraints_md FROM user_profiles WHERE profile_id = %s",
-                    (profile_id,),
-                )
-            else:
-                cur.execute("SELECT hard_constraints_md FROM user_profiles LIMIT 1")
-            hc_row = cur.fetchone()
-        if hc_row and hc_row[0]:
-            hard_constraints = hc_row[0]
-        if not hard_constraints:
-            hard_constraints = (
-                "No additional hard constraints were provided for this profile.\n"
-                "Use only information already present in the base resume.\n"
-                "Do not invent experience, skills, tools, metrics, dates, or credentials."
-            )
+        hard_constraints = _load_hard_constraints()
 
         _notify(event_callback, "    Generating tailored resume via LLM...", {
             "event_type": "agent_progress", "agent_name": "resume_tailor",

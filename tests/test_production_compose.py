@@ -8,13 +8,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def compose_config() -> dict:
-    env = {
-        **os.environ,
-        "POSTGRES_PASSWORD": "test-postgres-password",
-        "RENDURE_API_KEY": "test-api-key",
-        "PROFILE_ENCRYPTION_KEY": "test-profile-encryption-key",
-        "OPENROUTER_API_KEY": "test-openrouter-key",
-    }
     result = subprocess.run(
         [
             "docker",
@@ -28,10 +21,10 @@ def compose_config() -> dict:
             "json",
         ],
         cwd=ROOT,
-        env=env,
         check=True,
         text=True,
         capture_output=True,
+        env={**os.environ, "COMPOSE_DISABLE_ENV_FILE": "1"},
     )
     return json.loads(result.stdout)
 
@@ -52,26 +45,26 @@ def test_production_compose_keeps_database_private_and_mounts_migrations():
     assert any(volume["source"].endswith("/database") for volume in migrate["volumes"])
 
 
-def test_production_compose_requires_runtime_secrets():
-    env = {
-        key: value
-        for key, value in os.environ.items()
-        if key
-        not in {
-            "POSTGRES_PASSWORD",
-            "RENDURE_API_KEY",
-            "PROFILE_ENCRYPTION_KEY",
-            "OPENROUTER_API_KEY",
-        }
-    }
+def test_production_compose_uses_legacy_defaults_without_env_file():
+    config = compose_config()
+    db_env = config["services"]["db"]["environment"]
+    api_env = config["services"]["api"]["environment"]
 
-    result = subprocess.run(
-        ["docker", "compose", "-f", "docker-compose.yml", "config"],
-        cwd=ROOT,
-        env=env,
-        text=True,
-        capture_output=True,
-    )
+    assert db_env["POSTGRES_USER"] == "rendure_user"
+    assert db_env["POSTGRES_PASSWORD"] == "rendurepw@123"
+    assert db_env["POSTGRES_DB"] == "rendure_db"
+    assert api_env["RENDURE_API_KEY"] == "this_is_the_api_key"
+    assert api_env["DATABASE_URL"] == "postgresql://rendure_user:rendurepw%40123@db:5432/rendure_db"
 
-    assert result.returncode != 0
-    assert "is required" in result.stderr
+
+def test_frontend_proxy_receives_runtime_api_key():
+    config = compose_config()
+    frontend_env = config["services"]["frontend"]["environment"]
+
+    assert frontend_env["RENDURE_API_KEY"] == "this_is_the_api_key"
+
+
+def test_nginx_proxy_injects_api_key_header():
+    template = (ROOT / "frontend" / "nginx.conf.template").read_text()
+
+    assert 'proxy_set_header X-API-Key "${RENDURE_API_KEY}";' in template

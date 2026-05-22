@@ -884,7 +884,7 @@ describe('jobs routes', () => {
     await expect(res.json()).resolves.toEqual({
       job_id: 'job-123',
       status: 'qa_review',
-      qa_score: '0.875',
+      qa_score: 0.875,
       iteration_count: 2,
       company_name: 'Acme',
       role_title: 'Engineer',

@@ -14,6 +14,28 @@ import { listenForPipelineEvents } from '../pg-listener.js'
 
 const jobs = new Hono()
 
+function toNumberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'number') return value
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+function normalizeJobRow<T extends Record<string, unknown>>(row: T): T {
+  return { ...row, qa_score: toNumberOrNull(row.qa_score) }
+}
+
+function normalizeQaReviewRow<T extends Record<string, unknown>>(row: T): T {
+  return {
+    ...row,
+    score: toNumberOrNull(row.score),
+    score_threshold: toNumberOrNull(row.score_threshold),
+    keyword_match: toNumberOrNull(row.keyword_match),
+    experience_match: toNumberOrNull(row.experience_match),
+    seniority_match: toNumberOrNull(row.seniority_match),
+  }
+}
+
 /**
  * POST /jobs
  *
@@ -66,7 +88,7 @@ jobs.get('/', async (c) => {
      FROM jobs
      ORDER BY created_at DESC`
   )
-  return c.json(result.rows)
+  return c.json(result.rows.map(normalizeJobRow))
 })
 
 /**
@@ -268,7 +290,7 @@ jobs.get('/:id/qa', async (c) => {
     [id],
   )
 
-  return c.json(result.rows)
+  return c.json(result.rows.map(normalizeQaReviewRow))
 })
 
 /**
@@ -395,7 +417,7 @@ jobs.get('/:id/status', async (c) => {
     return httpError(c, 404, 'not_found', 'Job not found.')
   }
 
-  return c.json(result.rows[0])
+  return c.json(normalizeJobRow(result.rows[0]))
 })
 
 /**
@@ -434,7 +456,7 @@ jobs.get('/:id', async (c) => {
     return httpError(c, 404, 'not_found', 'Job not found.')
   }
 
-  const job = jobResult.rows[0]
+  const job = normalizeJobRow(jobResult.rows[0])
 
   // Latest QA review for this job (if any)
   const qaResult = await pool.query(
@@ -477,7 +499,7 @@ jobs.get('/:id', async (c) => {
 
   return c.json({
     ...job,
-    qa_review: qaResult.rows[0] ?? null,
+    qa_review: qaResult.rows[0] ? normalizeQaReviewRow(qaResult.rows[0]) : null,
     pipeline_events: eventsResult.rows,
   })
 })
