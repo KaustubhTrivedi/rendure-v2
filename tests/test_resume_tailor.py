@@ -1,25 +1,30 @@
-from pathlib import Path
+from unittest.mock import MagicMock
 
 import agents.resume_tailor as resume_tailor
 
 
-def test_resume_tailor_reads_first_iteration_base_resume_from_resume_file(tmp_path, monkeypatch):
-    resume_dir = tmp_path / "resume"
-    resume_dir.mkdir()
-    resume_path = resume_dir / "resume.md"
-    resume_path.write_text("cv:\n  name: Test Candidate\n\ndesign:\n  theme: sb2nov\n", encoding="utf-8")
-    monkeypatch.setattr(resume_tailor, "BASE_RESUME_PATH", resume_path)
+def test_resume_tailor_loads_base_resume_from_profile():
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__ = MagicMock(return_value=cursor)
+    conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    cursor.fetchone.return_value = ("cv:\n  name: Test Candidate\n\ndesign:\n  theme: sb2nov\n",)
 
-    assert resume_tailor._load_base_resume() == "cv:\n  name: Test Candidate\n\ndesign:\n  theme: sb2nov"
+    result = resume_tailor._load_base_resume_from_profile(conn)
+
+    assert result == "cv:\n  name: Test Candidate\n\ndesign:\n  theme: sb2nov"
 
 
-def test_resume_tailor_reports_missing_base_resume_path(tmp_path, monkeypatch):
-    missing_path = tmp_path / "resume" / "resume.md"
-    monkeypatch.setattr(resume_tailor, "BASE_RESUME_PATH", missing_path)
+def test_resume_tailor_reports_missing_profile_resume():
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__ = MagicMock(return_value=cursor)
+    conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    cursor.fetchone.return_value = None
 
     try:
-        resume_tailor._load_base_resume()
+        resume_tailor._load_base_resume_from_profile(conn)
     except resume_tailor.AgentError as exc:
-        assert str(missing_path) in str(exc)
+        assert "No resume found" in str(exc)
     else:
-        raise AssertionError("expected AgentError for missing base resume")
+        raise AssertionError("expected AgentError for missing profile resume")
