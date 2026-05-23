@@ -24,7 +24,7 @@ def compose_config() -> dict:
         check=True,
         text=True,
         capture_output=True,
-        env={**os.environ, "COMPOSE_DISABLE_ENV_FILE": "1"},
+        env={k: v for k, v in os.environ.items() if k != "DATABASE_URL"} | {"COMPOSE_DISABLE_ENV_FILE": "1"},
     )
     return json.loads(result.stdout)
 
