@@ -53,6 +53,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ./api/Dockerfile
           push: true
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
@@ -62,12 +63,13 @@ jobs:
       - name: Build and push web image
         uses: docker/build-push-action@v6
         with:
-          context: ./apps/web
+          context: .
+          file: ./frontend/Dockerfile
           push: true
           tags: ${{ steps.meta-web.outputs.tags }}
           labels: ${{ steps.meta-web.outputs.labels }}
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
-            NEXT_PUBLIC_APP_URL=${{ vars.NEXT_PUBLIC_APP_URL }}
+            VITE_API_URL=${{ vars.VITE_API_URL }}
+            VITE_API_KEY=${{ secrets.VITE_API_KEY }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
