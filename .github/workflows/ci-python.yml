@@ -14,20 +14,26 @@ jobs:
   test:
     runs-on: self-hosted
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: jobs_tracker_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          -p 5433:5432
+
     env:
-      DATABASE_URL: postgresql://test:test@localhost:5432/jobs_tracker_test
+      DATABASE_URL: postgresql://test:test@localhost:5433/jobs_tracker_test
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up test database
-        run: |
-          sudo -u postgres psql -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'test') THEN CREATE ROLE test WITH LOGIN PASSWORD 'test'; END IF; END \$\$;"
-          sudo -u postgres psql -c "DROP DATABASE IF EXISTS jobs_tracker_test;"
-          sudo -u postgres psql -c "CREATE DATABASE jobs_tracker_test OWNER test;"
-
-      - name: Initialise schema
-        run: psql "$DATABASE_URL" -f db/schema.sql
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -39,6 +45,9 @@ jobs:
 
       - name: Install dependencies
         run: uv sync
+
+      - name: Initialise test database
+        run: psql "$DATABASE_URL" -f db/schema.sql
 
       - name: Run tests
         run: uv run pytest tests/ -v
