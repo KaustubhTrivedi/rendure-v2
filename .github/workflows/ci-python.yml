@@ -47,7 +47,7 @@ jobs:
         run: uv sync
 
       - name: Initialise test database
-        run: psql "$DATABASE_URL" -f db/schema.sql
+        run: psql "$DATABASE_URL" -f database/schema.sql
 
       - name: Run tests
         run: uv run pytest tests/ -v
