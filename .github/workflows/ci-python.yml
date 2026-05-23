@@ -21,6 +21,7 @@ jobs:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
           POSTGRES_DB: jobs_tracker_test
+          POSTGRES_HOST_AUTH_METHOD: trust
         options: >-
           --health-cmd "pg_isready -U test"
           --health-interval 10s
@@ -28,7 +29,7 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://test:test@postgres:5432/jobs_tracker_test
+      DATABASE_URL: postgresql://test:test@postgres:5432/jobs_tracker_test?sslmode=disable
 
     steps:
       - uses: actions/checkout@v4
