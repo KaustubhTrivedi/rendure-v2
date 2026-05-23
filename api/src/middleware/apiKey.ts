@@ -27,7 +27,7 @@ export function assertApiKeyConfigured(): void {
 export function apiKeyMiddleware(): MiddlewareHandler {
   return async (c, next) => {
     const expected = process.env.RENDURE_API_KEY ?? ''
-    const provided = c.req.header('x-api-key')
+    const provided = c.req.header('x-api-key') || c.req.query('key')
 
     if (!provided) {
       return httpError(c, 401, 'unauthorized', 'Unauthorized', {

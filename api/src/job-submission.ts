@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { resolve } from 'node:path'
 import { pool } from './db.js'
+import { decrypt } from './crypto.js'
 
 /**
  * Absolute path to the project root (parent of api/).
@@ -101,7 +102,46 @@ export async function submitJobUrl(url: string): Promise<JobSubmitResult> {
   )
   const job_id: string = insert.rows[0].job_id
 
-  // 4. Spawn the pipeline detached — we don't wait for it to finish
+  // 4. Fetch user profile settings to pass to the pipeline
+  const profileResult = await pool.query(
+    `SELECT openrouter_api_key_enc, preferred_model, qa_threshold, max_iterations,
+            model_job_scout, model_resume_tailor, model_quality_analyst,
+            model_confirmation, model_orchestrator
+     FROM user_profile WHERE id = 1`,
+  )
+  const profile = profileResult.rows[0] ?? {}
+
+  const pipelineEnv: NodeJS.ProcessEnv = { ...process.env }
+
+  if (profile.openrouter_api_key_enc) {
+    try {
+      pipelineEnv.OPENROUTER_API_KEY = decrypt(profile.openrouter_api_key_enc)
+    } catch {
+      // Decryption failure is non-fatal — pipeline will fail with its own error
+    }
+  }
+  if (profile.preferred_model) {
+    pipelineEnv.OPENROUTER_MODEL = profile.preferred_model
+  }
+  if (profile.qa_threshold != null) {
+    pipelineEnv.QA_PASS_THRESHOLD = String(profile.qa_threshold)
+  }
+  if (profile.max_iterations != null) {
+    pipelineEnv.MAX_TAILORING_ITERATIONS = String(profile.max_iterations)
+  }
+
+  const agentEnvMap: Array<[string, string]> = [
+    ['MODEL_JOB_SCOUT', profile.model_job_scout],
+    ['MODEL_RESUME_TAILOR', profile.model_resume_tailor],
+    ['MODEL_QUALITY_ANALYST', profile.model_quality_analyst],
+    ['MODEL_CONFIRMATION', profile.model_confirmation],
+    ['MODEL_ORCHESTRATOR', profile.model_orchestrator],
+  ]
+  for (const [envKey, val] of agentEnvMap) {
+    if (val) pipelineEnv[envKey] = val
+  }
+
+  // 5. Spawn the pipeline detached — we don't wait for it to finish
   const child = spawn(
     'uv',
     ['run', 'python', 'run_agents.py', url, '--job-id', job_id],
@@ -109,12 +149,12 @@ export async function submitJobUrl(url: string): Promise<JobSubmitResult> {
       cwd: PROJECT_ROOT,
       detached: true,
       stdio: 'ignore',
-      env: { ...process.env },
+      env: pipelineEnv,
     },
   )
   child.unref()
 
-  // 5. Handle spawn errors by recording error in DB
+  // 6. Handle spawn errors by recording error in DB
   child.on('error', async (error) => {
     try {
       await pool.query(

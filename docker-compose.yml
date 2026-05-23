@@ -64,6 +64,8 @@ services:
       - resume_pdf_cache:/var/cache/rendure/resumes
     expose:
       - "3002"
+    ports:
+      - "3002:3002"
 
   frontend:
     build:

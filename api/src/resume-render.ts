@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { parse as yamlParse, stringify as yamlStringify } from 'yaml'
 
 export interface RenderPdfOptions {
   versionId: string
@@ -107,6 +108,148 @@ function validateRenderCvSource(source: string) {
   }
 }
 
+const SECTION_KEYS = new Set([
+  'profile', 'summary', 'skills', 'experience',
+  'projects', 'education', 'publications', 'certifications',
+])
+
+export function normalizeRenderCvYaml(source: string): string {
+  let doc: Record<string, unknown>
+  try {
+    doc = yamlParse(source) as Record<string, unknown>
+  } catch {
+    return source
+  }
+
+  if (!doc || typeof doc !== 'object' || !('cv' in doc)) return source
+
+  const cv = doc.cv as Record<string, unknown>
+  if (!cv || typeof cv !== 'object') return source
+
+  if (cv.sections && typeof cv.sections === 'object') {
+    normalizeFieldNames(cv.sections as Record<string, unknown>)
+    normalizeCvHeader(cv)
+    return yamlStringify(doc, { lineWidth: 0 })
+  }
+
+  const sections: Record<string, unknown> = {}
+  const keysToRemove: string[] = []
+
+  for (const key of Object.keys(cv)) {
+    if (SECTION_KEYS.has(key)) {
+      if (key === 'profile') {
+        sections['summary'] = cv[key]
+      } else {
+        sections[key] = cv[key]
+      }
+      keysToRemove.push(key)
+    }
+  }
+
+  if (Object.keys(sections).length === 0) return source
+
+  for (const key of keysToRemove) {
+    delete cv[key]
+  }
+
+  normalizeFieldNames(sections)
+  cv.sections = sections
+  normalizeCvHeader(cv)
+
+  return yamlStringify(doc, { lineWidth: 0 })
+}
+
+function normalizeCvHeader(cv: Record<string, unknown>) {
+  if (typeof cv.phone === 'string') {
+    let phone = cv.phone as string
+    phone = phone.replace(/[^\d+]/g, '')
+    if (phone.startsWith('0')) {
+      phone = '+353' + phone.slice(1)
+    }
+    if (!phone.startsWith('+')) {
+      phone = '+' + phone
+    }
+    cv.phone = phone
+  }
+
+  if (typeof cv.website === 'string') {
+    const site = cv.website as string
+    if (!/^https?:\/\//i.test(site)) {
+      cv.website = 'https://' + site
+    }
+  }
+}
+
+function coerceHighlights(items: Record<string, unknown>[]) {
+  for (const item of items) {
+    if (Array.isArray(item.highlights)) {
+      item.highlights = item.highlights.map((h: unknown) => {
+        if (typeof h === 'string') return h
+        if (h && typeof h === 'object') {
+          return Object.entries(h as Record<string, unknown>)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(', ')
+        }
+        return String(h)
+      })
+    }
+    if (item.start_date instanceof Date) {
+      item.start_date = formatDate(item.start_date)
+    }
+    if (item.end_date instanceof Date) {
+      item.end_date = formatDate(item.end_date)
+    }
+  }
+}
+
+function formatDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  return `${y}-${m}`
+}
+
+function normalizeFieldNames(sections: Record<string, unknown>) {
+  if (Array.isArray(sections.skills)) {
+    sections.skills = (sections.skills as Record<string, unknown>[]).map((item) => {
+      if (item.title && !item.label) {
+        item.label = item.title
+        delete item.title
+      }
+      if (Array.isArray(item.skills) && !item.details) {
+        item.details = (item.skills as string[]).join(', ')
+        delete item.skills
+      }
+      return item
+    })
+  }
+
+  if (Array.isArray(sections.projects)) {
+    coerceHighlights(sections.projects as Record<string, unknown>[])
+    sections.projects = (sections.projects as Record<string, unknown>[]).map((item) => {
+      if (item.title && !item.name) {
+        item.name = item.title
+        delete item.title
+      }
+      return item
+    })
+  }
+
+  if (Array.isArray(sections.education)) {
+    coerceHighlights(sections.education as Record<string, unknown>[])
+    sections.education = (sections.education as Record<string, unknown>[]).map((item) => {
+      if (item.study_type && !item.degree) {
+        item.degree = item.study_type
+        delete item.study_type
+      }
+      return item
+    })
+  }
+
+  if (Array.isArray(sections.experience)) {
+    coerceHighlights(sections.experience as Record<string, unknown>[])
+  }
+}
+
 async function readCachedPdf(versionId: string): Promise<Buffer | null> {
   try {
     return await readFile(cachePath(versionId))
@@ -131,6 +274,7 @@ export async function getOrRenderPdf(options: RenderPdfOptions): Promise<Buffer>
   if (cached) return cached
 
   validateRenderCvSource(options.source)
+  options = { ...options, source: normalizeRenderCvYaml(options.source) }
   const existing = inFlight.get(options.versionId)
   if (existing) return existing
 

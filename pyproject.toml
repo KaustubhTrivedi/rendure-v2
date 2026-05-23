@@ -15,7 +15,7 @@ dependencies = [
     "tenacity==8.2.3",
     "pytest>=8.3.0",
     "cryptography>=48.0.0",
-    "rendercv>=2.8",
+    "rendercv[full]>=2.8",
 ]
 
 [tool.uv]

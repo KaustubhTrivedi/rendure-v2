@@ -31,7 +31,7 @@ export const app = new Hono()
 
 // CORS — allow frontend dev server and any configured origin
 app.use('*', cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174'],
   credentials: true,
 }))
 

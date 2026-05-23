@@ -90,6 +90,11 @@ export interface UserProfile {
   qa_threshold: number | null;
   max_iterations: number | null;
   preferred_model: string | null;
+  model_job_scout: string | null;
+  model_resume_tailor: string | null;
+  model_quality_analyst: string | null;
+  model_confirmation: string | null;
+  model_orchestrator: string | null;
   target_seniority: string | null;
   highlight_skills: string[] | null;
   preferred_industries: string[] | null;
@@ -97,6 +102,35 @@ export interface UserProfile {
   notify_email: string | null;
   notify_webhook_url: string | null;
   notify_telegram_chat_id: string | null;
+  resume_text: string | null;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  location: string | null;
+  linkedin_url: string | null;
+  website_url: string | null;
+  summary: string | null;
+  years_experience: number | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ParsedProfile {
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  location: string | null;
+  linkedin_url: string | null;
+  website_url: string | null;
+  summary: string | null;
+  years_experience: number | null;
+  target_seniority: string | null;
+  highlight_skills: string[];
+  preferred_industries: string[];
+}
+
+export interface ResumeUploadResponse {
+  resume_stored: boolean;
+  parsed: ParsedProfile | null;
+  parse_error?: string;
 }

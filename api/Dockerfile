@@ -15,7 +15,8 @@ ENV PROJECT_ROOT=/app
 ENV PATH="/app/.venv/bin:$PATH"
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl python3 \
+  && apt-get install -y --no-install-recommends \
+     ca-certificates curl python3 fontconfig libfontconfig1 \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv

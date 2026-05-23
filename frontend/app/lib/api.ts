@@ -1,4 +1,4 @@
-import type { Job, JobDetail, ResumeVersion, ResumeVersionSummary, QAReview, UserProfile, OpenRouterModel } from "./types";
+import type { Job, JobDetail, ResumeVersion, ResumeVersionSummary, QAReview, UserProfile, OpenRouterModel, ResumeUploadResponse } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3002";
 const API_KEY = import.meta.env.VITE_API_KEY ?? "";
@@ -82,6 +82,20 @@ export const api = {
       request<{ configured: boolean }>("/profile/api-key"),
     deleteApiKey: () =>
       request<{ ok: boolean }>("/profile/api-key", { method: "DELETE" }),
+    uploadResume: async (file: File): Promise<ResumeUploadResponse> => {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`${API_URL}/profile/resume`, {
+        method: "POST",
+        headers: { "X-API-Key": API_KEY },
+        body: form,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new ApiError(res.status, body);
+      }
+      return res.json() as Promise<ResumeUploadResponse>;
+    },
   },
 
   models: {

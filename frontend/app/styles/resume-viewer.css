@@ -310,7 +310,7 @@
   border: 2px solid var(--black);
 }
 
-/* Dark stage with paper */
+/* Dark stage */
 .viewer-stage {
   background: #3a3a3a;
   background-image: linear-gradient(45deg, #444 25%, transparent 25%),
@@ -322,6 +322,79 @@
   padding: 28px;
   max-height: 1180px;
   overflow-y: auto;
+}
+
+/* PDF embed stage */
+.viewer-stage.pdf-stage {
+  padding: 0;
+  max-height: none;
+  height: 1100px;
+  overflow: hidden;
+}
+
+.pdf-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* Raw source view */
+.raw-source {
+  background: #1a1a1a;
+  color: #e0e0e0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 24px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 400px;
+  max-height: 1100px;
+  overflow-y: auto;
+}
+
+/* PDF error state */
+.pdf-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  color: #ccc;
+  text-align: center;
+  gap: 12px;
+}
+
+.pdf-error-icon {
+  font-weight: 900;
+  font-size: 48px;
+  letter-spacing: 0.1em;
+  color: var(--red, #e53e3e);
+  border: 4px solid currentColor;
+  padding: 12px 24px;
+}
+
+.pdf-error p {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pdf-error .pdf-error-detail {
+  font-weight: 400;
+  font-size: 12px;
+  color: #999;
+  max-width: 360px;
+}
+
+.dot-err {
+  width: 8px;
+  height: 8px;
+  background: var(--red, #e53e3e);
+  display: inline-block;
 }
 
 .viewer-stage::-webkit-scrollbar {

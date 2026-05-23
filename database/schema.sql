@@ -203,6 +203,15 @@ CREATE TABLE IF NOT EXISTS user_profile (
     tailor_style_notes      TEXT,
     notify_email            TEXT,
     notify_webhook_url      TEXT,
+    resume_text             TEXT,
+    full_name               TEXT,
+    email                   TEXT,
+    phone                   TEXT,
+    location                TEXT,
+    linkedin_url            TEXT,
+    website_url             TEXT,
+    summary                 TEXT,
+    years_experience        INTEGER,
     created_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at              TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

@@ -26,7 +26,6 @@ EventCallback = Callable[[dict], None] | None
 
 MODEL = "qwen/qwen3.5-9b"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-BASE_RESUME_PATH = PROJECT_ROOT / "resume" / "resume.md"
 HARD_CONSTRAINTS_PATH = PROJECT_ROOT / "profile" / "hard_constraints.md"
 
 
@@ -121,13 +120,15 @@ def _get_conn() -> Any:
     return psycopg2.connect(os.environ["DATABASE_URL"])
 
 
-def _load_base_resume() -> str:
-    if not BASE_RESUME_PATH.exists():
-        raise AgentError(f"Base resume not found at {BASE_RESUME_PATH}")
-    content = BASE_RESUME_PATH.read_text(encoding="utf-8").strip()
-    if not content:
-        raise AgentError(f"Base resume is empty at {BASE_RESUME_PATH}")
-    return content
+def _load_base_resume_from_profile(conn: Any) -> str:
+    with conn.cursor() as cur:
+        cur.execute("SELECT resume_text FROM user_profile WHERE id = 1")
+        row = cur.fetchone()
+    if not row or not row[0] or not row[0].strip():
+        raise AgentError(
+            "No resume found in user profile. Upload a resume via the Settings page first."
+        )
+    return row[0].strip()
 
 
 def _load_hard_constraints() -> str:
@@ -261,11 +262,11 @@ def run(
 
         # ── Step 3: Read base resume ──────────────────────────────────────────
         if iteration_number == 1:
-            _notify(event_callback, "    Reading base resume...", {
+            _notify(event_callback, "    Reading base resume from profile...", {
                 "event_type": "agent_progress", "agent_name": "resume_tailor",
-                "detail": "Reading base resume...",
+                "detail": "Reading base resume from profile...",
             })
-            base_resume = _load_base_resume()
+            base_resume = _load_base_resume_from_profile(conn)
         else:
             # On retry, read the previous version from the database
             _notify(event_callback, "    Reading previous resume version from DB...", {

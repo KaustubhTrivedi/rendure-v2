@@ -14,6 +14,11 @@ vi.mock('./db.js', () => ({
   },
 }))
 
+vi.mock('./crypto.js', () => ({
+  decrypt: vi.fn((val: string) => `decrypted:${val}`),
+  encrypt: vi.fn((val: string) => `encrypted:${val}`),
+}))
+
 const query = vi.mocked(pool.query)
 const spawnMock = vi.mocked(spawn)
 
@@ -48,6 +53,14 @@ describe('submitJobUrl', () => {
     query
       .mockResolvedValueOnce({ rows: [] } as never)
       .mockResolvedValueOnce({ rows: [{ job_id: 'job-123' }] } as never)
+      .mockResolvedValueOnce({
+        rows: [{
+          openrouter_api_key_enc: 'enc-key',
+          preferred_model: 'anthropic/claude-3.5-sonnet',
+          qa_threshold: 0.85,
+          max_iterations: 3,
+        }],
+      } as never)
 
     const result = await submitJobUrl('https://example.com/job')
 
@@ -71,11 +84,45 @@ describe('submitJobUrl', () => {
       `INSERT INTO jobs (job_url, status) VALUES ($1, 'new') RETURNING job_id`,
       ['https://example.com/job'],
     )
+    expect(query).toHaveBeenNthCalledWith(
+      3,
+      expect.stringContaining('openrouter_api_key_enc'),
+    )
     expect(spawnMock).toHaveBeenCalledWith(
       'uv',
       ['run', 'python', 'run_agents.py', 'https://example.com/job', '--job-id', 'job-123'],
-      expect.objectContaining({ detached: true, stdio: 'ignore' }),
+      expect.objectContaining({
+        detached: true,
+        stdio: 'ignore',
+        env: expect.objectContaining({
+          OPENROUTER_API_KEY: 'decrypted:enc-key',
+          OPENROUTER_MODEL: 'anthropic/claude-3.5-sonnet',
+          QA_PASS_THRESHOLD: '0.85',
+          MAX_TAILORING_ITERATIONS: '3',
+        }),
+      }),
     )
+    expect(child.unref).toHaveBeenCalledOnce()
+  })
+
+  it('spawns without profile env vars when no profile row exists', async () => {
+    const child = mockChild()
+    query
+      .mockResolvedValueOnce({ rows: [] } as never)
+      .mockResolvedValueOnce({ rows: [{ job_id: 'job-123' }] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never)
+
+    const result = await submitJobUrl('https://example.com/job')
+
+    expect(result.statusCode).toBe(202)
+    expect(spawnMock).toHaveBeenCalledWith(
+      'uv',
+      expect.any(Array),
+      expect.objectContaining({ detached: true }),
+    )
+    const spawnEnv = spawnMock.mock.calls[0][2]?.env as Record<string, string>
+    expect(spawnEnv).not.toHaveProperty('OPENROUTER_API_KEY')
+    expect(spawnEnv).not.toHaveProperty('OPENROUTER_MODEL')
     expect(child.unref).toHaveBeenCalledOnce()
   })
 
@@ -114,6 +161,8 @@ describe('submitJobUrl', () => {
     query
       .mockResolvedValueOnce({ rows: [] } as never)
       .mockResolvedValueOnce({ rows: [{ job_id: 'job-123' }] } as never)
+      // Profile fetch
+      .mockResolvedValueOnce({ rows: [] } as never)
       // Two more for the error handler UPDATE + INSERT
       .mockResolvedValueOnce({ rows: [] } as never)
       .mockResolvedValueOnce({ rows: [] } as never)
@@ -129,12 +178,12 @@ describe('submitJobUrl', () => {
 
     // The error handler should have updated job status and written pipeline_events
     expect(query).toHaveBeenNthCalledWith(
-      3,
+      4,
       `UPDATE jobs SET status = 'error', updated_at = NOW() WHERE job_id = $1`,
       ['job-123'],
     )
     expect(query).toHaveBeenNthCalledWith(
-      4,
+      5,
       `INSERT INTO pipeline_events (job_id, event_type, agent_name, detail, metadata)
          VALUES ($1, 'pipeline_error', 'api', $2, $3)`,
       ['job-123', 'Failed to spawn pipeline worker: uv not found', { reason: 'uv not found' }],

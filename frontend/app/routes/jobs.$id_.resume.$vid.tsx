@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { api, ApiError } from "~/lib/api";
 import type { ResumeVersionSummary, JobDetail } from "~/lib/types";
 import { Nav } from "../components/Nav";
@@ -10,27 +8,25 @@ import "../styles/resume-viewer.css";
 export default function ResumeView() {
   const navigate = useNavigate();
   const { id, vid } = useParams();
-  const [markdown, setMarkdown] = useState<string | null>(null);
   const [versions, setVersions] = useState<ResumeVersionSummary[]>([]);
   const [job, setJob] = useState<JobDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notesOpen, setNotesOpen] = useState(true);
-  const [zoom, setZoom] = useState(100);
-
-  const ZSTEPS = [50, 75, 90, 100, 110, 125, 150, 175, 200];
+  const [pdfError, setPdfError] = useState(false);
+  const [showRawSource, setShowRawSource] = useState(false);
+  const [rawSource, setRawSource] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id || !vid) return;
     setLoading(true);
     setError(null);
+    setPdfError(false);
     Promise.all([
-      api.resumes.getMarkdown(id, vid),
       api.resumes.list(id),
       api.jobs.get(id) as Promise<JobDetail>,
     ])
-      .then(([md, vers, j]) => {
-        setMarkdown(md);
+      .then(([vers, j]) => {
         setVersions(vers);
         setJob(j);
       })
@@ -56,13 +52,23 @@ export default function ResumeView() {
   const keywordGaps = qaReview?.gaps?.filter((g) => g.category === "skills") ?? [];
   const matchScore = qaReview ? Math.round(qaReview.score * 100) : null;
 
-  const zoomIn = () => {
-    const next = ZSTEPS.find((z) => z > zoom);
-    if (next) setZoom(next);
-  };
-  const zoomOut = () => {
-    const prev = [...ZSTEPS].reverse().find((z) => z < zoom);
-    if (prev) setZoom(prev);
+  const pdfUrl = id && vid ? api.resumes.pdfUrl(id, vid) : "";
+
+  const handleShowRaw = async () => {
+    if (showRawSource) {
+      setShowRawSource(false);
+      return;
+    }
+    if (!id || !vid) return;
+    if (!rawSource) {
+      try {
+        const src = await api.resumes.getMarkdown(id, vid);
+        setRawSource(src);
+      } catch {
+        setRawSource("Failed to load source.");
+      }
+    }
+    setShowRawSource(true);
   };
 
   if (loading) {
@@ -70,18 +76,18 @@ export default function ResumeView() {
       <>
         <Nav variant="back" backTo={id ? `/jobs/${id}` : "/jobs"} backLabel="JOB DETAIL" />
         <main className="page resume-page">
-          <div className="loading-state">Loading resume…</div>
+          <div className="loading-state">Loading resume...</div>
         </main>
       </>
     );
   }
 
-  if (error || !markdown) {
+  if (error) {
     return (
       <>
         <Nav variant="back" backTo={id ? `/jobs/${id}` : "/jobs"} backLabel="JOB DETAIL" />
         <main className="page resume-page">
-          <div className="error-state">{error ?? "Resume not available"}</div>
+          <div className="error-state">{error}</div>
         </main>
       </>
     );
@@ -100,17 +106,17 @@ export default function ResumeView() {
             </div>
           </div>
           <div className="actions">
-            <a href={api.resumes.pdfUrl(id!, vid!)} className="btn primary" download>
+            <a href={pdfUrl} className="btn primary" download>
               <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="square">
                 <path d="M12 3v13" /><path d="M6 11l6 6 6-6" /><path d="M4 21h16" />
               </svg>
               DOWNLOAD PDF
             </a>
-            <button className="btn">
+            <button className="btn" onClick={handleShowRaw}>
               <svg viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="square">
                 <path d="M4 6h16" /><path d="M4 12h10" /><path d="M4 18h16" />
               </svg>
-              RAW MARKDOWN
+              {showRawSource ? "SHOW PDF" : "RAW SOURCE"}
             </button>
           </div>
         </header>
@@ -125,7 +131,7 @@ export default function ResumeView() {
                 className={`rv-pill${v.version_id === vid ? " active" : ""}`}
                 onClick={() => navigate(`/jobs/${id}/resume/${v.version_id}`)}
               >
-                V{v.version_number} {v.version_id === vid && <span className="check">✓</span>}
+                V{v.version_number} {v.version_id === vid && <span className="check">&#10003;</span>}
               </button>
             ))}
           </div>
@@ -136,70 +142,70 @@ export default function ResumeView() {
 
         {/* Two Column */}
         <div className="rv-grid">
-          {/* Left: PDF Viewer */}
+          {/* Left: PDF Viewer or Raw Source */}
           <section className="viewer" aria-label="Resume PDF preview">
             <div className="viewer-toolbar">
               <div className="vt-group">
-                <button className="vt-btn" aria-label="Previous page" disabled>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="square"><path d="M15 6l-6 6 6 6" /></svg>
-                </button>
-                <div className="vt-pageinput">
-                  <input className="field" defaultValue="1" />
-                  <span className="total">/ 1</span>
-                </div>
-                <button className="vt-btn" aria-label="Next page" disabled>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="square"><path d="M9 6l6 6-6 6" /></svg>
-                </button>
                 <span className="vt-divider" />
-                <div className="vt-zoom" role="group" aria-label="Zoom">
-                  <button onClick={zoomOut} aria-label="Zoom out">−</button>
-                  <span className="level">{zoom}%</span>
-                  <button onClick={zoomIn} aria-label="Zoom in">+</button>
+                <div className="vt-filename">
+                  <span style={{ width: 12, height: 14, background: "var(--white)", border: "2px solid var(--black)", display: "inline-block" }} />
+                  resume.v{activeVersionNumber}.pdf
                 </div>
-                <button className="vt-btn" aria-label="Fit to width">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="square">
-                    <path d="M4 8V4h4" /><path d="M20 8V4h-4" /><path d="M4 16v4h4" /><path d="M20 16v4h-4" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="vt-filename">
-                <span style={{ width: 12, height: 14, background: "var(--white)", border: "2px solid var(--black)", display: "inline-block" }} />
-                resume.v{activeVersionNumber}.pdf
               </div>
 
               <div className="vt-group right">
-                <button className="vt-btn" aria-label="Search">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="square"><circle cx="11" cy="11" r="6" /><path d="M20 20l-4-4" /></svg>
-                </button>
-                <button className="vt-btn" aria-label="Print">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="square"><path d="M7 9V3h10v6" /><rect x="4" y="9" width="16" height="9" /><path d="M7 14h10v7H7z" /></svg>
-                </button>
-                <button className="vt-btn" aria-label="Download">
+                <a className="vt-btn" href={pdfUrl} target="_blank" rel="noopener noreferrer" aria-label="Open in new tab">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="square">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                </a>
+                <a className="vt-btn" href={pdfUrl} download aria-label="Download">
                   <svg viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="square"><path d="M12 3v13" /><path d="M6 11l6 6 6-6" /><path d="M4 21h16" /></svg>
-                </button>
+                </a>
               </div>
             </div>
 
-            {/* Dark stage with paper */}
-            <div className="viewer-stage">
-              <article
-                className="paper"
-                style={{
-                  transform: `scale(${zoom / 100})`,
-                  transformOrigin: "top center",
-                  transition: "transform .15s ease",
-                }}
-              >
-                <div className="markdown-content">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
+            {/* Content area */}
+            {showRawSource ? (
+              <div className="viewer-stage">
+                <pre className="raw-source">{rawSource ?? "Loading..."}</pre>
+              </div>
+            ) : pdfError ? (
+              <div className="viewer-stage">
+                <div className="pdf-error">
+                  <div className="pdf-error-icon">PDF</div>
+                  <p>PDF preview unavailable.</p>
+                  <p className="pdf-error-detail">RenderCV may not be installed on the server. Use the download button to try downloading directly.</p>
+                  <button className="btn" onClick={handleShowRaw}>VIEW RAW SOURCE</button>
                 </div>
-              </article>
-            </div>
+              </div>
+            ) : (
+              <div className="viewer-stage pdf-stage">
+                <iframe
+                  src={pdfUrl}
+                  className="pdf-iframe"
+                  title={`Resume V${activeVersionNumber} PDF`}
+                  onError={() => setPdfError(true)}
+                  onLoad={(e) => {
+                    try {
+                      const iframe = e.target as HTMLIFrameElement;
+                      const ct = iframe.contentDocument?.contentType;
+                      if (ct && !ct.includes("pdf")) {
+                        setPdfError(true);
+                      }
+                    } catch {
+                      // Cross-origin — PDF loaded from API, can't inspect. That's fine.
+                    }
+                  }}
+                />
+              </div>
+            )}
 
             <div className="viewer-status">
               <div className="group">
-                <span><span className="dot-ok" /> RENDERED OK</span>
+                <span><span className={`dot-${pdfError ? "err" : "ok"}`} /> {pdfError ? "PDF UNAVAILABLE" : "RENDERCV"}</span>
                 <span>FILE · <b>resume.v{activeVersionNumber}.pdf</b></span>
                 <span>VERSION <b>{activeVersionNumber}</b></span>
               </div>
@@ -216,7 +222,7 @@ export default function ResumeView() {
                 <div className="panel-title">
                   TAILORING NOTES <span className="panel-count">{tailoringNotes.length.toString().padStart(2, "0")}</span>
                 </div>
-                <div className="chev" aria-hidden="true">▼</div>
+                <div className="chev" aria-hidden="true">&#9660;</div>
               </header>
               <div className="panel-body">
                 <div className="note-meta">
