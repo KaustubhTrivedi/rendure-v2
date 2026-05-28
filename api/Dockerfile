@@ -31,7 +31,7 @@ COPY utils/ utils/
 COPY resume/ resume/
 COPY run_agents.py ./
 
-EXPOSE 3002
+EXPOSE 3002 1455
 HEALTHCHECK --interval=30s --timeout=5s --retries=5 --start-period=20s \
   CMD curl -fsS http://localhost:3002/ >/dev/null || exit 1
 CMD ["node", "dist/index.js"]

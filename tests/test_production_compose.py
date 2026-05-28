@@ -64,6 +64,18 @@ def test_frontend_proxy_receives_runtime_api_key():
     assert frontend_env["RENDURE_API_KEY"] == "this_is_the_api_key"
 
 
+def test_api_publishes_codex_oauth_callback_port_and_mounts_auth_home():
+    config = compose_config()
+    api = config["services"]["api"]
+
+    published_ports = {
+        (port.get("published"), port.get("target"))
+        for port in api["ports"]
+    }
+    assert ("1455", 1455) in published_ports
+    assert any(volume["target"] == "/root/.codex" for volume in api["volumes"])
+
+
 def test_nginx_proxy_injects_api_key_header():
     template = (ROOT / "frontend" / "nginx.conf.template").read_text()
 

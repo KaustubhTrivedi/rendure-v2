@@ -19,7 +19,7 @@ COPY resume/ resume/
 COPY run_agents.py ./
 
 ENV PROJECT_ROOT=/app
-EXPOSE 3002
+EXPOSE 3002 1455
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
   CMD wget -qO- http://localhost:3002/ | grep -q ok || exit 1
 CMD ["npx", "tsx", "watch", "src/index.ts"]
