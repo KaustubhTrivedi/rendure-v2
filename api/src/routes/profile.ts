@@ -10,6 +10,7 @@ const profile = new Hono()
 const SELECT_COLUMNS = `
   display_name,
   openrouter_api_key_enc IS NOT NULL AS api_key_configured,
+  llm_provider,
   qa_threshold,
   max_iterations,
   preferred_model,
@@ -49,6 +50,7 @@ const SELECT_COLUMNS = `
 export const patchProfileSchema = z
   .object({
     display_name: z.string().trim().min(1).optional(),
+    llm_provider: z.enum(['openrouter', 'codex-oauth']).optional(),
     target_seniority: z
       .enum(['junior', 'mid', 'senior', 'lead', 'staff', 'principal'])
       .optional(),

@@ -84,9 +84,21 @@ export interface OpenRouterModel {
   name: string;
 }
 
+export type LlmProvider = "openrouter" | "codex-oauth";
+
+export interface CodexAuthStatus {
+  connected: boolean;
+  expired: boolean;
+  source_path: string | null;
+  account_id: string | null;
+  expires_at: string | null;
+  last_refresh: string | null;
+}
+
 export interface UserProfile {
   display_name: string | null;
   api_key_configured: boolean;
+  llm_provider: LlmProvider | null;
   qa_threshold: number | null;
   max_iterations: number | null;
   preferred_model: string | null;
