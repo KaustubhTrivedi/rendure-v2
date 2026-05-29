@@ -4,6 +4,7 @@ import { decrypt } from './crypto.js'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
+import { isCodexOAuthEnabled } from './routes/codex-auth.js'
 
 const DEFAULT_OPENROUTER_PARSE_MODEL = 'google/gemini-2.0-flash-001'
 const DEFAULT_CODEX_PARSE_MODEL = 'gpt-5.5'
@@ -359,7 +360,7 @@ export async function parseResumeWithLLM(resumeText: string): Promise<ParsedProf
   )
 
   const profile = profileResult.rows[0]
-  if (profile?.llm_provider === 'codex-oauth') {
+  if (isCodexOAuthEnabled() && profile?.llm_provider === 'codex-oauth') {
     const codexAuth = await readConnectedCodexAuth()
     if (codexAuth) {
       return parseWithCodexOAuth(

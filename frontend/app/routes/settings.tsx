@@ -4,6 +4,10 @@ import "../styles/settings.css";
 import { api, ApiError } from "~/lib/api";
 import type { UserProfile, OpenRouterModel, LlmProvider, CodexAuthStatus } from "~/lib/types";
 
+// Codex OAuth provider is gated for the hosted build (set VITE_CODEX_OAUTH_ENABLED=false).
+// Default ON so self-hosted clone-and-run keeps the provider.
+const CODEX_ENABLED = import.meta.env.VITE_CODEX_OAUTH_ENABLED !== "false";
+
 const SENIORITY_LEVELS = ["JUNIOR", "MID", "SENIOR", "LEAD", "STAFF", "PRINCIPAL"];
 const SENIORITY_SHORT = ["JR", "MID", "SR", "LEAD", "STAFF", "PRIN"];
 
@@ -37,14 +41,16 @@ export default function Settings() {
         const [profileData, apiKeyData, codexData] = await Promise.all([
           api.profile.get(),
           api.profile.checkApiKey(),
-          api.codexAuth.status().catch(() => null),
+          CODEX_ENABLED ? api.codexAuth.status().catch(() => null) : Promise.resolve(null),
         ]);
         if (cancelled) return;
         setProfile(profileData);
         setApiKeyConfigured(apiKeyData.configured);
         if (codexData) setCodexStatus(codexData);
         setCodexLoading(false);
-        if (profileData.llm_provider) setLlmProvider(profileData.llm_provider);
+        if (profileData.llm_provider && CODEX_ENABLED) {
+          setLlmProvider(profileData.llm_provider);
+        }
         if (profileData.preferred_model) setModel(profileData.preferred_model);
         if (profileData.target_seniority) {
           const idx = SENIORITY_MAP.indexOf(profileData.target_seniority);
@@ -293,6 +299,7 @@ export default function Settings() {
             <span className="hint">which backend powers your agents</span>
           </h2>
 
+          {CODEX_ENABLED && (
           <div className="settings-field">
             <label className="settings-label">
               PROVIDER
@@ -317,8 +324,9 @@ export default function Settings() {
               </button>
             </div>
           </div>
+          )}
 
-          {llmProvider === "codex-oauth" && (
+          {CODEX_ENABLED && llmProvider === "codex-oauth" && (
             <div className="settings-field">
               <label className="settings-label">
                 CONNECTION STATUS

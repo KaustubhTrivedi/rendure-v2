@@ -281,6 +281,17 @@ function startCallbackServer(loginId: string): Promise<Server> {
   })
 }
 
+/**
+ * Whether the Codex OAuth provider is enabled for this deployment.
+ *
+ * Defaults to enabled (self-hosted parity with prior behaviour); the hosted
+ * browser build opts out with `CODEX_OAUTH_ENABLED=false`. Read at call time
+ * so tests can mutate `process.env` without module-level side effects.
+ */
+export function isCodexOAuthEnabled(): boolean {
+  return process.env.CODEX_OAUTH_ENABLED !== 'false'
+}
+
 // Two Hono apps: one for authenticated routes, one public (kept for backward compat)
 export const codexAuth = new Hono()
 export const codexAuthPublic = new Hono()

@@ -41,6 +41,38 @@ describe('app', () => {
     expect(body.version.length).toBeGreaterThan(0)
   })
 
+  it('mounts Codex routes when CODEX_OAUTH_ENABLED is unset (default ON)', async () => {
+    delete process.env.CODEX_OAUTH_ENABLED
+    vi.resetModules()
+    const { app } = await import('./index.js')
+
+    const res = await app.request('/profile/codex-auth/status', {
+      headers: { 'X-API-Key': 'test-key' },
+    })
+
+    // Route is mounted: the handler answers (not Hono's bare unmatched-route 404).
+    expect(res.status).not.toBe(401)
+    const body = (await res.json()) as Record<string, unknown>
+    expect(body).toHaveProperty('connected')
+  })
+
+  it('does not mount Codex routes when CODEX_OAUTH_ENABLED=false', async () => {
+    process.env.CODEX_OAUTH_ENABLED = 'false'
+    vi.resetModules()
+    const { app } = await import('./index.js')
+
+    const res = await app.request('/profile/codex-auth/status', {
+      headers: { 'X-API-Key': 'test-key' },
+    })
+
+    expect(res.status).toBe(404)
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    expect(body).not.toHaveProperty('connected')
+
+    delete process.env.CODEX_OAUTH_ENABLED
+    vi.resetModules()
+  })
+
   it('returns 401 on /jobs/* without X-API-Key', async () => {
     const { app } = await import('./index.js')
     const res = await app.request('/jobs/anything/status')

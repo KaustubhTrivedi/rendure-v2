@@ -53,6 +53,7 @@ services:
       PROFILE_ENCRYPTION_KEY: ${PROFILE_ENCRYPTION_KEY:-91CC3417D21B4CECB294E2D5413D3FD6A211EA095D468111F25FCDFDB4A92C29}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      CODEX_OAUTH_ENABLED: ${CODEX_OAUTH_ENABLED:-true}
       NODE_ENV: development
     volumes:
       - ./api/src:/app/src:ro
@@ -72,6 +73,7 @@ services:
     environment:
       VITE_API_URL: http://localhost:3002
       VITE_API_KEY: ${RENDURE_API_KEY:-this_is_the_api_key}
+      VITE_CODEX_OAUTH_ENABLED: ${CODEX_OAUTH_ENABLED:-true}
     volumes:
       - ./frontend/app:/app/app:ro
 

@@ -7,6 +7,10 @@ import "../styles/onboarding.css";
 
 type ValidationState = "idle" | "ok" | "err";
 
+// Codex OAuth provider is gated for the hosted build (set VITE_CODEX_OAUTH_ENABLED=false).
+// Default ON so self-hosted clone-and-run keeps the provider.
+const CODEX_ENABLED = import.meta.env.VITE_CODEX_OAUTH_ENABLED !== "false";
+
 const AGENTS = [
   { key: "model_job_scout",       label: "JOB SCOUT",       hint: "Scrapes & parses job postings" },
   { key: "model_resume_tailor",   label: "RESUME TAILOR",   hint: "Rewrites resume for the role" },
@@ -498,6 +502,7 @@ export default function Onboarding() {
           </h2>
 
           {/* Provider toggle */}
+          {CODEX_ENABLED && (
           <div className="provider-toggle" style={{ marginBottom: 18 }}>
             <button
               type="button"
@@ -516,6 +521,7 @@ export default function Onboarding() {
               <span className="provider-desc">OAuth — use your ChatGPT subscription</span>
             </button>
           </div>
+          )}
 
           {llmProvider === "openrouter" ? (
             <div className="provider">
