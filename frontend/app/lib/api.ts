@@ -1,4 +1,4 @@
-import type { Job, JobDetail, ResumeVersion, ResumeVersionSummary, QAReview, UserProfile, OpenRouterModel, ResumeUploadResponse } from "./types";
+import type { Job, JobDetail, ResumeVersion, ResumeVersionSummary, QAReview, UserProfile, OpenRouterModel, ResumeUploadResponse, CodexAuthStatus } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3002";
 const API_KEY = import.meta.env.VITE_API_KEY ?? "";
@@ -100,6 +100,13 @@ export const api = {
 
   models: {
     list: () => request<OpenRouterModel[]>("/profile/models"),
+  },
+
+  codexAuth: {
+    status: () => request<CodexAuthStatus>("/profile/codex-auth/status"),
+    login: () => request<{ login_id: string; auth_url: string }>("/profile/codex-auth/login", { method: "POST" }),
+    pollLogin: (loginId: string) => request<{ status: "pending" | "complete" | "error" | "expired"; error?: string }>(`/profile/codex-auth/login/${loginId}/status`),
+    models: () => request<OpenRouterModel[]>("/profile/codex-auth/models"),
   },
 
   health: {

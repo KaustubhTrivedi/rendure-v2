@@ -1,7 +1,7 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router";
 import { api, ApiError } from "~/lib/api";
-import type { OpenRouterModel, ParsedProfile } from "~/lib/types";
+import type { LlmProvider, OpenRouterModel, ParsedProfile, CodexAuthStatus } from "~/lib/types";
 import "../styles/settings.css";
 import "../styles/onboarding.css";
 
@@ -35,7 +35,10 @@ export default function Onboarding() {
   // Step 1 — Name
   const [displayName, setDisplayName] = useState("");
 
-  // Step 2 — API Key
+  // Step 2 — Provider
+  const [llmProvider, setLlmProvider] = useState<LlmProvider>("openrouter");
+
+  // OpenRouter
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [validation, setValidation] = useState<ValidationState>("idle");
@@ -43,6 +46,13 @@ export default function Onboarding() {
   const [validationMsg, setValidationMsg] = useState(
     <>Awaiting validation — paste a key and click <b>VALIDATE KEY</b>.</>
   );
+
+  // Codex OAuth
+  const [codexStatus, setCodexStatus] = useState<CodexAuthStatus | null>(null);
+  const [codexLoading, setCodexLoading] = useState(false);
+  const [codexLoginPending, setCodexLoginPending] = useState(false);
+  const [codexLoginError, setCodexLoginError] = useState<string | null>(null);
+  const codexPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Step 3 — Model
   const [model, setModel] = useState("");
@@ -81,15 +91,21 @@ export default function Onboarding() {
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
 
+  const codexConnected = codexStatus?.connected === true && !codexStatus?.expired;
+
+  const providerReady = llmProvider === "codex-oauth"
+    ? codexConnected
+    : validation === "ok";
+
   const currentStep = useMemo(() => {
     if (!displayName.trim()) return 0;
-    if (validation !== "ok") return 1;
+    if (!providerReady) return 1;
     if (!resumeUploaded) return 3;
     return 4;
-  }, [displayName, validation, resumeUploaded]);
+  }, [displayName, providerReady, resumeUploaded]);
 
   const canLaunch = displayName.trim().length > 0
-    && validation === "ok"
+    && providerReady
     && resumeUploaded
     && !modelsLoading;
 
@@ -97,7 +113,150 @@ export default function Onboarding() {
     setAgentModels((prev) => ({ ...prev, [key]: value }));
   }, []);
 
+  // --- Codex OAuth ---
+
+  const refreshCodexStatus = useCallback(async () => {
+    setCodexLoading(true);
+    try {
+      const s = await api.codexAuth.status();
+      setCodexStatus(s);
+    } catch {
+      setCodexStatus(null);
+    } finally {
+      setCodexLoading(false);
+    }
+  }, []);
+
+  const handleCodexLogin = async () => {
+    setCodexLoginError(null);
+    setCodexLoginPending(true);
+    try {
+      const { login_id, auth_url } = await api.codexAuth.login();
+      window.open(auth_url, "codex-login", "width=520,height=700");
+
+      if (codexPollRef.current) clearInterval(codexPollRef.current);
+      codexPollRef.current = setInterval(async () => {
+        try {
+          const r = await api.codexAuth.pollLogin(login_id);
+          if (r.status === "complete") {
+            if (codexPollRef.current) clearInterval(codexPollRef.current);
+            codexPollRef.current = null;
+            setCodexLoginPending(false);
+            await refreshCodexStatus();
+          } else if (r.status === "error" || r.status === "expired") {
+            if (codexPollRef.current) clearInterval(codexPollRef.current);
+            codexPollRef.current = null;
+            setCodexLoginPending(false);
+            setCodexLoginError(r.error ?? `Login ${r.status}`);
+          }
+        } catch {
+          if (codexPollRef.current) clearInterval(codexPollRef.current);
+          codexPollRef.current = null;
+          setCodexLoginPending(false);
+          setCodexLoginError("Poll failed");
+        }
+      }, 2000);
+    } catch (e) {
+      setCodexLoginPending(false);
+      setCodexLoginError(e instanceof Error ? e.message : "Login failed");
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (codexPollRef.current) clearInterval(codexPollRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (llmProvider === "codex-oauth" && !codexStatus) {
+      refreshCodexStatus();
+    }
+  }, [llmProvider, codexStatus, refreshCodexStatus]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProviderModels() {
+      if (llmProvider === "codex-oauth") {
+        setModels([]);
+        setModel("");
+        setAgentModels({
+          model_job_scout: "",
+          model_resume_tailor: "",
+          model_quality_analyst: "",
+          model_confirmation: "",
+          model_orchestrator: "",
+        });
+
+        if (!codexConnected) return;
+
+        setModelsLoading(true);
+        setModelsError(null);
+        try {
+          const fetched = await api.codexAuth.models();
+          if (cancelled) return;
+          setModels(fetched);
+          if (fetched.length > 0) setModel(fetched[0].id);
+        } catch (e) {
+          if (!cancelled) setModelsError(e instanceof Error ? e.message : "Failed to load Codex models");
+        } finally {
+          if (!cancelled) setModelsLoading(false);
+        }
+        return;
+      }
+
+      if (validation !== "ok") {
+        setModels([]);
+        setModel("");
+        setAgentModels({
+          model_job_scout: "",
+          model_resume_tailor: "",
+          model_quality_analyst: "",
+          model_confirmation: "",
+          model_orchestrator: "",
+        });
+        return;
+      }
+
+      setModelsLoading(true);
+      setModelsError(null);
+      try {
+        const fetched = await api.openrouter.listModels(apiKey.trim());
+        if (cancelled) return;
+        setModels(fetched);
+        if (fetched.length > 0) setModel(fetched[0].id);
+      } catch (e) {
+        if (!cancelled) setModelsError(e instanceof Error ? e.message : "Failed to load OpenRouter models");
+      } finally {
+        if (!cancelled) setModelsLoading(false);
+      }
+    }
+
+    loadProviderModels();
+    return () => { cancelled = true; };
+  }, [llmProvider, codexConnected, validation]);
+
   // --- Handlers ---
+
+  const resetModelSelection = () => {
+    setModels([]);
+    setModel("");
+    setModelsError(null);
+    setAgentModels({
+      model_job_scout: "",
+      model_resume_tailor: "",
+      model_quality_analyst: "",
+      model_confirmation: "",
+      model_orchestrator: "",
+    });
+  };
+
+  const handleProviderChange = (provider: LlmProvider) => {
+    if (provider === llmProvider) return;
+    setLlmProvider(provider);
+    resetModelSelection();
+  };
 
   const handleValidate = async () => {
     const v = apiKey.trim();
@@ -168,12 +327,15 @@ export default function Onboarding() {
 
     try {
       await ensureProfile(displayName.trim() || "User");
-      await api.profile.saveApiKey(apiKey.trim());
+      if (llmProvider === "openrouter") {
+        await api.profile.saveApiKey(apiKey.trim());
+      }
 
       // Save preferred model so LLM parse uses it
-      if (model) {
-        await api.profile.update({ preferred_model: model }).catch(() => {});
-      }
+      await api.profile.update({
+        llm_provider: llmProvider,
+        ...(model ? { preferred_model: model } : {}),
+      }).catch(() => {});
 
       const result = await api.profile.uploadResume(file);
       setResumeUploaded(true);
@@ -215,10 +377,13 @@ export default function Onboarding() {
     setLaunchError(null);
     try {
       await ensureProfile(displayName.trim());
-      await api.profile.saveApiKey(apiKey.trim());
+      if (llmProvider === "openrouter") {
+        await api.profile.saveApiKey(apiKey.trim());
+      }
 
       const profileUpdate: Record<string, unknown> = {
         display_name: displayName.trim(),
+        llm_provider: llmProvider,
       };
       if (model) profileUpdate.preferred_model = model;
       for (const agent of AGENTS) {
@@ -286,7 +451,7 @@ export default function Onboarding() {
         <div className="ob-progress ob-progress-4">
           {[
             { num: "01", title: "Your Name" },
-            { num: "02", title: "API Key" },
+            { num: "02", title: "Provider" },
             { num: "03", title: "Model" },
             { num: "04", title: "Profile" },
           ].map((s, i) => (
@@ -332,76 +497,158 @@ export default function Onboarding() {
             <span className="hint">powers the tailoring & QA agents</span>
           </h2>
 
-          <div className="provider">
-            <header className="ph">
-              <div className="pl">
-                <span className="prov-name">
-                  <span className="logo">⌁</span> OPENROUTER
-                </span>
-                <a className="prov-url" href="https://openrouter.ai" target="_blank" rel="noopener noreferrer">
-                  openrouter.ai ↗
-                </a>
-              </div>
-              <span className={`prov-stat${validation === "ok" ? " ok" : ""}`}>
-                <span className="prov-dot" />
-                {validation === "ok" ? " CONNECTED" : " NOT CONNECTED"}
-              </span>
-            </header>
+          {/* Provider toggle */}
+          <div className="provider-toggle" style={{ marginBottom: 18 }}>
+            <button
+              type="button"
+              className={`provider-btn${llmProvider === "openrouter" ? " active" : ""}`}
+              onClick={() => handleProviderChange("openrouter")}
+            >
+              <span className="provider-name">OPENROUTER</span>
+              <span className="provider-desc">API key — access 200+ models</span>
+            </button>
+            <button
+              type="button"
+              className={`provider-btn${llmProvider === "codex-oauth" ? " active" : ""}`}
+              onClick={() => handleProviderChange("codex-oauth")}
+            >
+              <span className="provider-name">CHATGPT CODEX</span>
+              <span className="provider-desc">OAuth — use your ChatGPT subscription</span>
+            </button>
+          </div>
 
-            <div className="pb">
-              <div className="settings-field">
-                <label className="settings-label" htmlFor="apikey">
-                  API KEY
-                  <span className="req">REQUIRED</span>
-                </label>
-                <div className="masked">
-                  <input
-                    id="apikey"
-                    className="settings-input"
-                    type={showKey ? "text" : "password"}
-                    placeholder="sk-or-v1-..."
-                    spellCheck={false}
-                    autoComplete="off"
-                    value={apiKey}
-                    onChange={(e) => {
-                      setApiKey(e.target.value);
-                      if (validation !== "idle") {
-                        setValidation("idle");
-                        setValidationMsg(<>Awaiting validation — paste a key and click <b>VALIDATE KEY</b>.</>);
-                      }
-                    }}
-                  />
-                  <button className="reveal" type="button" onClick={() => setShowKey(!showKey)}>
-                    {showKey ? "HIDE" : "SHOW"}
-                  </button>
-                </div>
-                <p className="settings-help">
-                  Get your key from{" "}
-                  <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer" style={{ color: "var(--black)", textDecoration: "underline", textUnderlineOffset: 3, textDecorationThickness: 2 }}>
-                    openrouter.ai/settings/keys
-                  </a>{" "}
-                  — free tier includes several models. Keys are stored locally; never sent to Rendure servers.
-                </p>
-
-                <div className="btn-row">
-                  <button className="btn dark" type="button" onClick={handleValidate}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="square">
-                      <path d="M4 12l5 5 11-11" />
-                    </svg>
-                    VALIDATE KEY
-                  </button>
-                  <a className="btn" href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">
-                    GET A KEY →
+          {llmProvider === "openrouter" ? (
+            <div className="provider">
+              <header className="ph">
+                <div className="pl">
+                  <span className="prov-name">
+                    <span className="logo">⌁</span> OPENROUTER
+                  </span>
+                  <a className="prov-url" href="https://openrouter.ai" target="_blank" rel="noopener noreferrer">
+                    openrouter.ai ↗
                   </a>
                 </div>
+                <span className={`prov-stat${validation === "ok" ? " ok" : ""}`}>
+                  <span className="prov-dot" />
+                  {validation === "ok" ? " CONNECTED" : " NOT CONNECTED"}
+                </span>
+              </header>
 
-                <div className={`vstatus ${validation}`}>
-                  <span className="vs-dot" />
-                  <span>{validationMsg}</span>
+              <div className="pb">
+                <div className="settings-field">
+                  <label className="settings-label" htmlFor="apikey">
+                    API KEY
+                    <span className="req">REQUIRED</span>
+                  </label>
+                  <div className="masked">
+                    <input
+                      id="apikey"
+                      className="settings-input"
+                      type={showKey ? "text" : "password"}
+                      placeholder="sk-or-v1-..."
+                      spellCheck={false}
+                      autoComplete="off"
+                      value={apiKey}
+                      onChange={(e) => {
+                        setApiKey(e.target.value);
+                        if (validation !== "idle") {
+                          setValidation("idle");
+                          setValidationMsg(<>Awaiting validation — paste a key and click <b>VALIDATE KEY</b>.</>);
+                        }
+                      }}
+                    />
+                    <button className="reveal" type="button" onClick={() => setShowKey(!showKey)}>
+                      {showKey ? "HIDE" : "SHOW"}
+                    </button>
+                  </div>
+                  <p className="settings-help">
+                    Get your key from{" "}
+                    <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer" style={{ color: "var(--black)", textDecoration: "underline", textUnderlineOffset: 3, textDecorationThickness: 2 }}>
+                      openrouter.ai/settings/keys
+                    </a>{" "}
+                    — free tier includes several models. Keys are stored locally; never sent to Rendure servers.
+                  </p>
+
+                  <div className="btn-row">
+                    <button className="btn dark" type="button" onClick={handleValidate}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="square">
+                        <path d="M4 12l5 5 11-11" />
+                      </svg>
+                      VALIDATE KEY
+                    </button>
+                    <a className="btn" href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">
+                      GET A KEY →
+                    </a>
+                  </div>
+
+                  <div className={`vstatus ${validation}`}>
+                    <span className="vs-dot" />
+                    <span>{validationMsg}</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="provider">
+              <header className="ph">
+                <div className="pl">
+                  <span className="prov-name">
+                    <span className="logo">◉</span> CHATGPT CODEX OAUTH
+                  </span>
+                </div>
+                <span className={`prov-stat${codexConnected ? " ok" : ""}`}>
+                  <span className="prov-dot" />
+                  {codexLoading ? " CHECKING..." : codexConnected ? " CONNECTED" : " NOT CONNECTED"}
+                </span>
+              </header>
+
+              <div className="pb">
+                {codexConnected && codexStatus ? (
+                  <div className="codex-status">
+                    <span className="codex-dot connected" />
+                    <div>
+                      <strong>AUTHENTICATED</strong>
+                      <div className="codex-meta">
+                        {codexStatus.account_id && <>Account: {codexStatus.account_id}</>}
+                        {codexStatus.expires_at && <> · Expires: {new Date(codexStatus.expires_at).toLocaleDateString()}</>}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="settings-field">
+                    <p className="settings-help" style={{ marginTop: 0, marginBottom: 14 }}>
+                      Sign in with your ChatGPT Plus or Pro account. Uses the Codex OAuth flow — no API key needed.
+                    </p>
+
+                    <div className="codex-login-row">
+                      <button
+                        className="btn dark codex-login-btn"
+                        type="button"
+                        onClick={handleCodexLogin}
+                        disabled={codexLoginPending || codexLoading}
+                      >
+                        {codexLoginPending ? "WAITING FOR LOGIN..." : "LOGIN WITH CHATGPT"}
+                      </button>
+                    </div>
+
+                    {codexLoginPending && (
+                      <p className="settings-help">
+                        A login window should have opened. Complete sign-in there, then this page will update automatically.
+                      </p>
+                    )}
+
+                    {codexLoginError && (
+                      <p className="codex-login-error">{codexLoginError}</p>
+                    )}
+
+                    <p className="settings-help" style={{ marginTop: 14 }}>
+                      Alternative: run <code>npx @openai/codex login</code> in your terminal, then refresh this page.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Section 03 — Default Model */}
@@ -426,7 +673,13 @@ export default function Onboarding() {
               >
                 {models.length === 0 ? (
                   <option value="">
-                    {modelsLoading ? "Loading models..." : modelsError ? "Failed to load" : "Validate key first"}
+                    {modelsLoading
+                      ? "Loading models..."
+                      : modelsError
+                        ? "Failed to load"
+                        : llmProvider === "codex-oauth"
+                          ? "Connect ChatGPT first"
+                          : "Validate key first"}
                   </option>
                 ) : (
                   <>
@@ -492,11 +745,17 @@ export default function Onboarding() {
             <div className="infobox">
               <span className="info-icon">i</span>
               <span>
-                MODEL PRICING VARIES · CHECK{" "}
-                <a href="https://openrouter.ai/models" target="_blank" rel="noopener noreferrer">
-                  openrouter.ai/models
-                </a>{" "}
-                FOR CURRENT RATES
+                {llmProvider === "codex-oauth" ? (
+                  "CHATGPT MODELS ARE LOADED FROM YOUR CODEX OAUTH SESSION"
+                ) : (
+                  <>
+                    MODEL PRICING VARIES · CHECK{" "}
+                    <a href="https://openrouter.ai/models" target="_blank" rel="noopener noreferrer">
+                      openrouter.ai/models
+                    </a>{" "}
+                    FOR CURRENT RATES
+                  </>
+                )}
               </span>
             </div>
           </div>
@@ -756,8 +1015,10 @@ export default function Onboarding() {
             <p className="launch-note" style={{ color: "var(--red)" }}>
               {!displayName.trim()
                 ? "Enter your name to continue."
-                : validation !== "ok"
-                ? "Validate your API key to continue."
+                : !providerReady
+                ? llmProvider === "codex-oauth"
+                  ? "Connect your ChatGPT account to continue."
+                  : "Validate your API key to continue."
                 : !resumeUploaded
                 ? "Upload your resume to continue."
                 : ""}

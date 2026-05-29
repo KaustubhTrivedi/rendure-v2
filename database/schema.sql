@@ -191,6 +191,10 @@ CREATE TABLE IF NOT EXISTS user_profile (
     id                      INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
     display_name            TEXT,
     openrouter_api_key_enc  TEXT,
+    llm_provider            TEXT DEFAULT 'openrouter' CHECK (
+                                llm_provider IS NULL OR
+                                llm_provider IN ('openrouter', 'codex-oauth')
+                            ),
     qa_threshold            NUMERIC(4, 3),
     max_iterations          INTEGER,
     preferred_model         TEXT,

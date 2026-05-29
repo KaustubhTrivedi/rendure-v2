@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Nav } from "../components/Nav";
 import "../styles/settings.css";
 import { api, ApiError } from "~/lib/api";
-import type { UserProfile, OpenRouterModel } from "~/lib/types";
+import type { UserProfile, OpenRouterModel, LlmProvider, CodexAuthStatus } from "~/lib/types";
 
 const SENIORITY_LEVELS = ["JUNIOR", "MID", "SENIOR", "LEAD", "STAFF", "PRINCIPAL"];
 const SENIORITY_SHORT = ["JR", "MID", "SR", "LEAD", "STAFF", "PRIN"];
@@ -21,6 +21,12 @@ export default function Settings() {
   const [model, setModel] = useState("");
   const [models, setModels] = useState<OpenRouterModel[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
+  const [llmProvider, setLlmProvider] = useState<LlmProvider>("openrouter");
+  const [codexStatus, setCodexStatus] = useState<CodexAuthStatus | null>(null);
+  const [codexLoading, setCodexLoading] = useState(true);
+  const [codexLoginPending, setCodexLoginPending] = useState(false);
+  const [codexLoginError, setCodexLoginError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const SENIORITY_MAP = ['', 'junior', 'mid', 'senior', 'lead', 'staff', 'principal'];
 
@@ -28,17 +34,18 @@ export default function Settings() {
     let cancelled = false;
     async function load() {
       try {
-        const [profileData, apiKeyData, modelList] = await Promise.all([
+        const [profileData, apiKeyData, codexData] = await Promise.all([
           api.profile.get(),
           api.profile.checkApiKey(),
-          api.models.list().catch(() => [] as OpenRouterModel[]),
+          api.codexAuth.status().catch(() => null),
         ]);
         if (cancelled) return;
         setProfile(profileData);
         setApiKeyConfigured(apiKeyData.configured);
-        setModels(modelList);
+        if (codexData) setCodexStatus(codexData);
+        setCodexLoading(false);
+        if (profileData.llm_provider) setLlmProvider(profileData.llm_provider);
         if (profileData.preferred_model) setModel(profileData.preferred_model);
-        if (modelList.length > 0 && !profileData.preferred_model) setModel(modelList[0].id);
         if (profileData.target_seniority) {
           const idx = SENIORITY_MAP.indexOf(profileData.target_seniority);
           if (idx > 0) setSeniority(idx - 1);
@@ -49,11 +56,87 @@ export default function Settings() {
       } catch (err) {
         if (!cancelled) setError(err instanceof ApiError ? err.message : "Failed to load profile");
       } finally {
-        if (!cancelled) { setLoading(false); setModelsLoading(false); }
+        if (!cancelled) setLoading(false);
       }
     }
     load();
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+
+    let cancelled = false;
+    async function loadModels() {
+      setModels([]);
+      setModelsLoading(true);
+      try {
+        let fetched: OpenRouterModel[] = [];
+        if (llmProvider === "codex-oauth") {
+          if (!codexStatus?.connected || codexStatus.expired) return;
+          fetched = await api.codexAuth.models();
+        } else {
+          fetched = await api.models.list();
+        }
+
+        if (cancelled) return;
+        setModels(fetched);
+        setModel((current) => fetched.some((m) => m.id === current) ? current : fetched[0]?.id || "");
+      } catch {
+        if (!cancelled) setModels([]);
+      } finally {
+        if (!cancelled) setModelsLoading(false);
+      }
+    }
+
+    loadModels();
+    return () => { cancelled = true; };
+  }, [loading, llmProvider, codexStatus?.connected, codexStatus?.expired]);
+
+  const refreshCodexStatus = useCallback(async () => {
+    try {
+      const status = await api.codexAuth.status();
+      setCodexStatus(status);
+    } catch { /* ignore */ }
+  }, []);
+
+  async function handleCodexLogin() {
+    setCodexLoginError(null);
+    setCodexLoginPending(true);
+    try {
+      const { login_id, auth_url } = await api.codexAuth.login();
+      window.open(auth_url, "codex-login", "width=500,height=700,popup=yes");
+
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        try {
+          const result = await api.codexAuth.pollLogin(login_id);
+          if (result.status === "complete") {
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
+            setCodexLoginPending(false);
+            await refreshCodexStatus();
+          } else if (result.status === "error" || result.status === "expired") {
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
+            setCodexLoginPending(false);
+            setCodexLoginError(result.error ?? "Login failed or expired.");
+          }
+        } catch {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+          setCodexLoginPending(false);
+          setCodexLoginError("Failed to check login status.");
+        }
+      }, 2000);
+    } catch (err) {
+      setCodexLoginPending(false);
+      setCodexLoginError(err instanceof ApiError ? err.message : "Failed to start login.");
+    }
+  }
+
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
   async function handleSave() {
@@ -65,6 +148,7 @@ export default function Settings() {
         max_iterations: maxIters,
         target_seniority: SENIORITY_MAP[seniority + 1],
         preferred_model: model || undefined,
+        llm_provider: llmProvider,
         notify_telegram_chat_id: chatId || undefined,
       });
       setProfile(updated);
@@ -73,6 +157,13 @@ export default function Settings() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleProviderChange(provider: LlmProvider) {
+    if (provider === llmProvider) return;
+    setLlmProvider(provider);
+    setModel("");
+    setModels([]);
   }
 
   if (loading) {
@@ -193,7 +284,96 @@ export default function Settings() {
               Composite score required to stop iterating and ship a version. <code>0.92</code> is strict — drop to <code>0.85</code> if runs keep timing out.
             </p>
           </div>
-          {/* Default Model */}
+        </section>
+
+        {/* Section 2: LLM Provider */}
+        <section className="settings-section">
+          <h2 className="sec-header">
+            <span><span className="idx">02</span>&nbsp;&nbsp;LLM PROVIDER</span>
+            <span className="hint">which backend powers your agents</span>
+          </h2>
+
+          <div className="settings-field">
+            <label className="settings-label">
+              PROVIDER
+              <span className="opt">select how LLM calls are routed</span>
+            </label>
+            <div className="provider-toggle">
+              <button
+                type="button"
+                className={`provider-btn${llmProvider === "openrouter" ? " active" : ""}`}
+                onClick={() => handleProviderChange("openrouter")}
+              >
+                <span className="provider-name">OpenRouter</span>
+                <span className="provider-desc">API key, any model</span>
+              </button>
+              <button
+                type="button"
+                className={`provider-btn${llmProvider === "codex-oauth" ? " active" : ""}`}
+                onClick={() => handleProviderChange("codex-oauth")}
+              >
+                <span className="provider-name">ChatGPT (Codex OAuth)</span>
+                <span className="provider-desc">Plus/Pro subscription</span>
+              </button>
+            </div>
+          </div>
+
+          {llmProvider === "codex-oauth" && (
+            <div className="settings-field">
+              <label className="settings-label">
+                CONNECTION STATUS
+              </label>
+              {codexLoading ? (
+                <p className="settings-help">Checking Codex auth…</p>
+              ) : codexStatus?.connected ? (
+                <div className="codex-status connected">
+                  <span className="codex-dot connected" />
+                  <div>
+                    <strong>Connected</strong>
+                    {codexStatus.expires_at && (
+                      <span className="codex-meta">
+                        &nbsp;· token expires {new Date(codexStatus.expires_at).toLocaleString()}
+                      </span>
+                    )}
+                    {codexStatus.source_path && (
+                      <p className="settings-help" style={{ margin: "4px 0 0" }}>
+                        Reading from <code>{codexStatus.source_path}</code>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="codex-status disconnected">
+                  <span className="codex-dot disconnected" />
+                  <div>
+                    <strong>{codexStatus?.expired ? "Token Expired" : "Not Connected"}</strong>
+                    <div className="codex-login-row">
+                      <button
+                        className="btn dark codex-login-btn"
+                        type="button"
+                        onClick={handleCodexLogin}
+                        disabled={codexLoginPending}
+                      >
+                        {codexLoginPending ? "WAITING FOR LOGIN…" : "LOGIN WITH CHATGPT"}
+                      </button>
+                    </div>
+                    {codexLoginPending && (
+                      <p className="settings-help" style={{ margin: "8px 0 0" }}>
+                        A login window should have opened. Sign in with your ChatGPT account.
+                      </p>
+                    )}
+                    {codexLoginError && (
+                      <p className="codex-login-error">{codexLoginError}</p>
+                    )}
+                    <p className="settings-help" style={{ margin: "8px 0 0" }}>
+                      Or run <code>npx @openai/codex login</code> in your terminal, then refresh.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="settings-field">
             <label className="settings-label" htmlFor="model">
               PREFERRED MODEL
@@ -205,11 +385,15 @@ export default function Settings() {
                 className="settings-select"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                disabled={modelsLoading}
+                disabled={modelsLoading || models.length === 0}
               >
                 {models.length === 0 ? (
                   <option value="">
-                    {modelsLoading ? "Loading models..." : "API key not configured"}
+                    {modelsLoading
+                      ? "Loading models..."
+                      : llmProvider === "codex-oauth"
+                        ? "Connect ChatGPT first"
+                        : "API key not configured"}
                   </option>
                 ) : (
                   models.map((m) => (
@@ -225,10 +409,10 @@ export default function Settings() {
           </div>
         </section>
 
-        {/* Section 2: Telegram Notifications */}
+        {/* Section 3: Telegram Notifications */}
         <section className="settings-section">
           <h2 className="sec-header">
-            <span><span className="idx">02</span>&nbsp;&nbsp;TELEGRAM NOTIFICATIONS</span>
+            <span><span className="idx">03</span>&nbsp;&nbsp;TELEGRAM NOTIFICATIONS</span>
             <span className="hint">ping me when runs complete</span>
           </h2>
 

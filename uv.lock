@@ -330,6 +330,7 @@ source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "cryptography" },
+    { name = "httpx" },
     { name = "langchain" },
     { name = "langchain-core" },
     { name = "openrouter" },
@@ -345,6 +346,7 @@ dependencies = [
 requires-dist = [
     { name = "click", specifier = ">=8.1" },
     { name = "cryptography", specifier = ">=48.0.0" },
+    { name = "httpx", specifier = ">=0.27.0" },
     { name = "langchain", specifier = ">=1.2.10" },
     { name = "langchain-core", specifier = ">=1.2.16" },
     { name = "openrouter", specifier = ">=0.1.0" },

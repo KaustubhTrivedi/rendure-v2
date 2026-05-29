@@ -46,6 +46,7 @@ services:
         condition: service_completed_successfully
     ports:
       - "3002:3002"
+      - "1455:1455"
     environment:
       DATABASE_URL: postgresql://rendure_user:rendurepw%40123@db:5432/rendure_db
       RENDURE_API_KEY: ${RENDURE_API_KEY:-this_is_the_api_key}
@@ -55,6 +56,7 @@ services:
       NODE_ENV: development
     volumes:
       - ./api/src:/app/src:ro
+      - ${HOME}/.codex:/root/.codex
 
   frontend:
     build:

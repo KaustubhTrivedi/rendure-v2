@@ -62,10 +62,13 @@ services:
       RESUME_PDF_CACHE_DIR: /var/cache/rendure/resumes
     volumes:
       - resume_pdf_cache:/var/cache/rendure/resumes
+      - ${HOME}/.codex:/root/.codex
     expose:
       - "3002"
+      - "1455"
     ports:
       - "3002:3002"
+      - "1455:1455"
 
   frontend:
     build:
