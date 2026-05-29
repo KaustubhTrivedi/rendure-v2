@@ -1,3 +1,5 @@
+"""Agents package — ephemeral sub-agents spawned by the Orchestrator."""
+
 from agents.job_scout import run as run_job_scout
 from agents.resume_tailor import run as run_resume_tailor
 from agents.quality_analyst import run as run_quality_analyst
