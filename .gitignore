@@ -13,6 +13,9 @@ wheels/
 .env
 .env.*
 !.env.*.example
+!.env.self-hosted
+!.env.cloud
+!.env.browser
 
 # Tokens
 tokens.json

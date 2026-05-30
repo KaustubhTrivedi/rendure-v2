@@ -119,7 +119,7 @@ One codebase deployable to three targets — self-hosted (canonical, unchanged),
 
 ## Phases (v4.0)
 
-- [ ] **Phase 5: DEPLOY_TARGET Foundation** — Config module (TS + Python), env templates, zero-regression self-hosted default
+- [ ] **Phase 5: DEPLOY_TARGET Foundation** — Config module (TS + Python), env templates, zero-regression self-hosted default (1/3 plans complete)
 - [ ] **Phase 6: Seam Adapters (Self-hosted Reference)** — DB adapter, agent-execution adapter, getLlmCredentials() resolver, all non-breaking
 - [ ] **Phase 7: Stateless Agent Refactor** — Pure-function agents, DB I/O lifted to boundary, pytest-verified behavior preserved
 - [ ] **Phase 8: Server-side Scraper Endpoint** — Stateless Jina scraper route, injection defence, structured errors
@@ -139,7 +139,7 @@ One codebase deployable to three targets — self-hosted (canonical, unchanged),
   3. Starting the API and running the Python pipeline with no `DEPLOY_TARGET` env var (or `DEPLOY_TARGET=self-hosted`) produces zero behavioral change — all existing vitest and pytest suites pass green
 **Plans**: 3 plans
 Plans:
-- [ ] 05-01-PLAN.md — TS config module (frozen singleton, fail-fast validation) + shared parity fixture
+- [x] 05-01-PLAN.md — TS config module (frozen singleton, fail-fast validation) + shared parity fixture
 - [ ] 05-02-PLAN.md — Python config module (frozen dataclass singleton) + cross-language parity tests
 - [ ] 05-03-PLAN.md — Per-target .env templates (placeholders only) + gitignore + README
 
@@ -226,7 +226,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 5. DEPLOY_TARGET Foundation | 0/? | Not started | - |
+| 5. DEPLOY_TARGET Foundation | 1/3 | In progress | 2026-05-30 |
 | 6. Seam Adapters (Self-hosted Ref) | 0/? | Not started | - |
 | 7. Stateless Agent Refactor | 0/? | Not started | - |
 | 8. Server-side Scraper Endpoint | 0/? | Not started | - |
