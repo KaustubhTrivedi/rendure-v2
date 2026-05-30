@@ -5,13 +5,13 @@ milestone_name: Config-driven Multi-target Deployment
 status: in_progress
 stopped_at: ""
 last_updated: "2026-05-30T11:46:57.000Z"
-last_activity: 2026-05-30 — Plan 05-01 complete (TS config module + parity fixture)
+last_activity: 2026-05-30 — Plan 05-03 complete (per-target env templates + gitignore + README)
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-05-30)
 ## Current Position
 
 Phase: 5 — DEPLOY_TARGET Foundation
-Plan: 01 — TS frozen config singleton + parity fixture (DONE)
-Status: Plan 05-01 complete — 3 tasks committed, all config tests green, full api suite stays green
-Next: Plan 05-02 — Python frozen dataclass config module + cross-language parity tests
-Last activity: 2026-05-30 — Plan 05-01 complete (TS config module + parity fixture)
+Plan: 03 — Per-target env templates + gitignore + README (DONE)
+Status: Plan 05-03 complete — 3 tasks committed, three .env.{target} templates created, .gitignore updated, README extended
+Next: Plan 05-02 — Python frozen dataclass config module + cross-language parity tests (blocking — run after 05-03)
+Last activity: 2026-05-30 — Plan 05-03 complete (per-target env templates + gitignore + README)
 
-Progress: [###-------] 33% (1/3 plans complete in Phase 5)
+Progress: [######----] 67% (2/3 plans complete in Phase 5)
 
 ## Performance Metrics
 
@@ -42,6 +42,7 @@ Progress: [###-------] 33% (1/3 plans complete in Phase 5)
 | 04-03 | 03 | 2 min | 3 | 4 | 19 |
 | 04-04 | 04 | 9 min | 3 | 4 | 18 |
 | 05-01 | 01 | 2 min | 3 | 3 | 10 |
+| 05-03 | 03 | 3 min | 3 | 5 | — |
 
 ## Accumulated Context
 
@@ -54,6 +55,7 @@ Progress: [###-------] 33% (1/3 plans complete in Phase 5)
 - 2026-05-30: Separate pure resolve() from frozen config singleton — tests import resolve dynamically (vi.resetModules + dynamic await import) to avoid the singleton throwing in test env on missing DATABASE_URL; tests set DATABASE_URL in beforeAll/beforeEach matching app.test.ts pattern
 - 2026-05-30: Deep-freeze (Object.freeze on each nested seam sub-object, not just the top) — shallow freeze leaves db/execution/credentials mutable
 - 2026-05-30: Shared parity fixture anchored at repo-root tests/fixtures/ — read by vitest via fileURLToPath + readFileSync idiom matching existing index.ts pattern
+- 2026-05-30: Per-target env templates (D-08/D-09/D-10): three .env.{target} files committed with placeholder-only secrets (changeme, <generate-with-openssl>); each template lists only its target's actual vars; existing .env.dev.example/.env.production.example unchanged; README documents relationship
 
 ### Decisions (v3.0, still relevant)
 

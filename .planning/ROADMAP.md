@@ -141,7 +141,7 @@ One codebase deployable to three targets — self-hosted (canonical, unchanged),
 Plans:
 - [x] 05-01-PLAN.md — TS config module (frozen singleton, fail-fast validation) + shared parity fixture
 - [ ] 05-02-PLAN.md — Python config module (frozen dataclass singleton) + cross-language parity tests
-- [ ] 05-03-PLAN.md — Per-target .env templates (placeholders only) + gitignore + README
+- [x] 05-03-PLAN.md — Per-target .env templates (placeholders only) + gitignore + README
 
 ### Phase 6: Seam Adapters (Self-hosted Reference Implementation)
 **Goal**: Three named adapter seams exist in the codebase — DB, agent-execution, and secrets/keys — each with a self-hosted implementation that is functionally identical to the code it replaces, so no behavior changes while the insertion points are established.
@@ -226,7 +226,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 5. DEPLOY_TARGET Foundation | 1/3 | In progress | 2026-05-30 |
+| 5. DEPLOY_TARGET Foundation | 2/3 | In progress | 2026-05-30 |
 | 6. Seam Adapters (Self-hosted Ref) | 0/? | Not started | - |
 | 7. Stateless Agent Refactor | 0/? | Not started | - |
 | 8. Server-side Scraper Endpoint | 0/? | Not started | - |
