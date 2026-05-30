@@ -1,0 +1,20 @@
+{
+  "self-hosted": {
+    "target": "self-hosted",
+    "db": { "connectionString": "postgres://parity-fixture" },
+    "execution": {},
+    "credentials": {}
+  },
+  "cloud": {
+    "target": "cloud",
+    "db": {},
+    "execution": {},
+    "credentials": {}
+  },
+  "browser": {
+    "target": "browser",
+    "db": {},
+    "execution": {},
+    "credentials": {}
+  }
+}
