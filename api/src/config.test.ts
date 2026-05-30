@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -58,5 +58,61 @@ describe('parity fixture', () => {
       }
       expect(resolve(env)).toEqual(expected)
     }
+  })
+})
+
+describe('fail-fast throw tests', () => {
+  let resolve: (env: Record<string, string | undefined>) => { target: string; db: Record<string, string>; execution: Record<string, never>; credentials: Record<string, never> }
+
+  beforeAll(async () => {
+    process.env.DATABASE_URL = 'postgres://x'
+    vi.resetModules()
+    const mod = await import('./config.js')
+    resolve = mod.resolve
+  })
+
+  afterAll(() => {
+    delete process.env.DATABASE_URL
+  })
+
+  it('throws on invalid non-empty DEPLOY_TARGET listing valid targets', () => {
+    expect(() => resolve({ DEPLOY_TARGET: 'staging', DATABASE_URL: 'postgres://x' }))
+      .toThrow(/self-hosted, cloud, browser/)
+  })
+
+  it('throws on missing DATABASE_URL for self-hosted target', () => {
+    expect(() => resolve({ DEPLOY_TARGET: 'self-hosted' }))
+      .toThrow(/DATABASE_URL/)
+  })
+})
+
+describe('config singleton immutability', () => {
+  let config: Record<string, unknown>
+
+  beforeAll(async () => {
+    process.env.DATABASE_URL = 'postgres://x'
+    vi.resetModules()
+    const mod = await import('./config.js')
+    config = mod.config
+  })
+
+  afterAll(() => {
+    delete process.env.DATABASE_URL
+  })
+
+  it('config is frozen', () => {
+    expect(Object.isFrozen(config)).toBe(true)
+  })
+
+  it('config.db is frozen', () => {
+    expect(Object.isFrozen(config.db)).toBe(true)
+  })
+
+  it('config.execution is frozen', () => {
+    expect(Object.isFrozen(config.execution)).toBe(true)
+  })
+
+  it('config.credentials is frozen', () => {
+    expect(Object.isFrozen(config.credentials)).toBe(true)
   })
 })
