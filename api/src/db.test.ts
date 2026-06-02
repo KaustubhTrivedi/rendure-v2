@@ -23,10 +23,12 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockConfig.config.target = 'self-hosted'
   mockConfig.config.db = { connectionString: 'postgres://test' }
-  PoolMock.mockImplementation(({ connectionString }) => ({
-    connectionString,
-    kind: 'pool',
-  }))
+  PoolMock.mockImplementation(function ({ connectionString }) {
+    return {
+      connectionString,
+      kind: 'pool',
+    }
+  })
 })
 
 describe('createDb config.db.connectionString seam', () => {
@@ -51,7 +53,9 @@ describe('createDb config.db.connectionString seam', () => {
 describe('pool export behavior through ./db.js', () => {
   it('pool export preserves backward-compatible ./db.js consumers as the singleton created by createDb', async () => {
     const singletonPool = { tag: 'singleton-pool' }
-    PoolMock.mockReturnValueOnce(singletonPool)
+    PoolMock.mockImplementationOnce(function () {
+      return singletonPool
+    })
 
     const { pool } = await import('./db.js')
     const { createDb } = await import('./db-adapter.js')
