@@ -30,16 +30,17 @@ def get_llm_credentials(
     }
 
     resolved_provider = provider or os.environ.get("LLM_PROVIDER")
+    if resolved_provider != "codex-oauth":
+        return creds
     if codex_auth_file_path is not None and not os.path.exists(codex_auth_file_path):
         return creds
-    if resolved_provider == "codex-oauth":
-        try:
-            from utils.llm import _CodexTokenManager
+    try:
+        from utils.llm import _CodexTokenManager
 
-            access_token, account_id = _CodexTokenManager(codex_auth_file_path).ensure_valid()
-            creds["codex_access_token"] = access_token
-            creds["codex_account_id"] = account_id
-        except Exception:
-            pass
+        access_token, account_id = _CodexTokenManager(codex_auth_file_path).ensure_valid()
+        creds["codex_access_token"] = access_token
+        creds["codex_account_id"] = account_id
+    except Exception:
+        pass
 
     return creds
