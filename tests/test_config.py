@@ -7,7 +7,10 @@ that the TS module also asserts against (D-11 cross-language parity).
 
 import json
 import os
+from dataclasses import FrozenInstanceError
 from pathlib import Path
+
+import pytest
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "deploy-target-parity.json"
 
@@ -91,3 +94,41 @@ def test_parity_browser():
         "credentials": dict(result.credentials),
     }
     assert rendered == fixture
+
+
+# ----- Throw tests: invalid target + missing required vars -----
+
+def test_invalid_target_raises():
+    """resolve({'DEPLOY_TARGET': 'staging'}) raises RuntimeError listing valid targets."""
+    from config import resolve
+
+    with pytest.raises(RuntimeError, match=r"self-hosted, cloud, browser"):
+        resolve({"DEPLOY_TARGET": "staging", "DATABASE_URL": "postgres://x"})
+
+
+def test_missing_database_url_raises():
+    """resolve({'DEPLOY_TARGET': 'self-hosted'}) without DATABASE_URL raises RuntimeError."""
+    from config import resolve
+
+    with pytest.raises(RuntimeError, match=r"DATABASE_URL"):
+        resolve({"DEPLOY_TARGET": "self-hosted"})
+
+
+# ----- Immutability tests: frozen dataclass + MappingProxyType -----
+
+def test_frozen_config_rejects_mutation():
+    """Mutating config.target on a frozen dataclass raises FrozenInstanceError."""
+    from config import resolve
+
+    cfg = resolve({"DEPLOY_TARGET": "cloud"})
+    with pytest.raises(FrozenInstanceError):
+        cfg.target = "cloud"
+
+
+def test_mapping_proxy_rejects_mutation():
+    """Mutating config.db (a MappingProxyType) raises TypeError."""
+    from config import resolve
+
+    cfg = resolve({"DEPLOY_TARGET": "self-hosted", "DATABASE_URL": "postgres://x"})
+    with pytest.raises(TypeError):
+        cfg.db["x"] = 1
