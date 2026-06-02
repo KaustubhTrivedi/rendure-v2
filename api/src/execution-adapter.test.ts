@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { spawn, type ChildProcess } from 'node:child_process'
 import type pg from 'pg'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runPipeline } from './execution-adapter.js'
 
 vi.mock('node:child_process', () => ({
@@ -25,9 +25,21 @@ function createPool(): pg.Pool {
   return { query: vi.fn() } as unknown as pg.Pool
 }
 
+const originalProjectRoot = process.env.PROJECT_ROOT
+
 describe('runPipeline', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    process.env.PROJECT_ROOT = '/tmp/project'
+  })
+
+  afterEach(() => {
+    if (originalProjectRoot === undefined) {
+      delete process.env.PROJECT_ROOT
+      return
+    }
+
+    process.env.PROJECT_ROOT = originalProjectRoot
   })
 
   it('spawns uv detached with the provided pipeline env and unreferences the child', () => {
