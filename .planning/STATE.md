@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: Config-driven Multi-target Deployment
-status: in_progress
-stopped_at: ""
-last_updated: "2026-05-30T11:46:57.000Z"
-last_activity: 2026-05-30 — Plan 05-03 complete (per-target env templates + gitignore + README)
+status: ready_to_plan
+stopped_at: Phase 6 context gathered — ready to plan
+last_updated: 2026-06-02T18:00:00.000Z
+last_activity: 2026-06-02 -- Phase 06 context gathered
 progress:
-  total_phases: 4
-  completed_phases: 0
+  total_phases: 7
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 67
+  completed_plans: 3
+  percent: 14
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-30)
 
 **Core value:** A job seeker pastes a URL and gets back a tailored, high-quality resume without touching a single line of their resume themselves.
-**Current focus:** Phase 5 — DEPLOY_TARGET Foundation (plan 1/3 complete)
+**Current focus:** Phase 6 — seam adapters (self hosted reference implementation)
 
 ## Current Position
 
-Phase: 5 — DEPLOY_TARGET Foundation
-Plan: 03 — Per-target env templates + gitignore + README (DONE)
-Status: Plan 05-03 complete — 3 tasks committed, three .env.{target} templates created, .gitignore updated, README extended
-Next: Plan 05-02 — Python frozen dataclass config module + cross-language parity tests (blocking — run after 05-03)
-Last activity: 2026-05-30 — Plan 05-03 complete (per-target env templates + gitignore + README)
+Phase: 6
+Plan: Not started
+Status: Context gathered — ready to plan
+Next: /gsd-plan-phase 6
+Last activity: 2026-06-02
 
 Progress: [######----] 67% (2/3 plans complete in Phase 5)
 
