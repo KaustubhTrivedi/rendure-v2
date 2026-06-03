@@ -18,6 +18,24 @@ Rendure does not submit applications. It prepares resume versions and QA notes s
 
 Docker Compose is the recommended way to run Rendure.
 
+One-command bootstrap:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KaustubhTrivedi/rendure-v2/main/scripts/bootstrap.sh | bash
+```
+
+This clones or updates Rendure in `./rendure`, creates `.env` with local secrets if it
+does not exist, builds the containers, starts the full stack, and prints the local URL.
+Open `http://localhost:8080`, then complete onboarding with your profile and API key.
+
+To choose a different checkout directory or port:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KaustubhTrivedi/rendure-v2/main/scripts/bootstrap.sh | RENDURE_APP_DIR=jobs-tracker HTTP_PORT=3000 bash
+```
+
+Manual setup is also supported:
+
 ```bash
 cp .env.production.example .env
 # Edit .env and replace every placeholder secret.
