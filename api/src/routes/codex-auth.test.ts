@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFile } from 'node:fs/promises'
-import { codexAuth } from './codex-auth.js'
+import { codexAuth, isCodexOAuthEnabled } from './codex-auth.js'
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
@@ -80,5 +80,25 @@ describe('GET /profile/codex-auth/models', () => {
     expect(body.map((m) => m.id)).toContain('gpt-4.1')
     expect(body.map((m) => m.id)).toContain('o4-mini')
     expect(body.every((m) => m.name.length > 0)).toBe(true)
+  })
+})
+
+describe('isCodexOAuthEnabled', () => {
+  beforeEach(() => {
+    delete process.env.CODEX_OAUTH_ENABLED
+  })
+
+  it('defaults to enabled when the env var is unset', () => {
+    expect(isCodexOAuthEnabled()).toBe(true)
+  })
+
+  it('is disabled only when explicitly set to "false"', () => {
+    process.env.CODEX_OAUTH_ENABLED = 'false'
+    expect(isCodexOAuthEnabled()).toBe(false)
+  })
+
+  it('stays enabled for any non-"false" value', () => {
+    process.env.CODEX_OAUTH_ENABLED = 'true'
+    expect(isCodexOAuthEnabled()).toBe(true)
   })
 })

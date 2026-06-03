@@ -22,6 +22,8 @@ vi.mock('./crypto.js', () => ({
 const query = vi.mocked(pool.query)
 const spawnMock = vi.mocked(spawn)
 
+const originalEnv = { ...process.env }
+
 function mockChild() {
   const child = new EventEmitter() as EventEmitter & {
     stdout: EventEmitter
@@ -46,6 +48,7 @@ describe('statusUrl', () => {
 describe('submitJobUrl', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    process.env = { ...originalEnv }
   })
 
   it('inserts a new job, spawns the pipeline, and returns 202 with job_id, status, status_url', async () => {
@@ -105,8 +108,14 @@ describe('submitJobUrl', () => {
     expect(child.unref).toHaveBeenCalledOnce()
   })
 
-  it('spawns without profile env vars when no profile row exists', async () => {
+  it('spawns without adding profile-derived overrides when no profile row exists', async () => {
     const child = mockChild()
+    delete process.env.OPENROUTER_API_KEY
+    delete process.env.OPENROUTER_MODEL
+    delete process.env.QA_PASS_THRESHOLD
+    delete process.env.MAX_TAILORING_ITERATIONS
+    process.env.INHERITED_ONLY = 'keep-me'
+
     query
       .mockResolvedValueOnce({ rows: [] } as never)
       .mockResolvedValueOnce({ rows: [{ job_id: 'job-123' }] } as never)
@@ -121,8 +130,11 @@ describe('submitJobUrl', () => {
       expect.objectContaining({ detached: true }),
     )
     const spawnEnv = spawnMock.mock.calls[0][2]?.env as Record<string, string>
+    expect(spawnEnv).toMatchObject({ INHERITED_ONLY: 'keep-me' })
     expect(spawnEnv).not.toHaveProperty('OPENROUTER_API_KEY')
     expect(spawnEnv).not.toHaveProperty('OPENROUTER_MODEL')
+    expect(spawnEnv).not.toHaveProperty('QA_PASS_THRESHOLD')
+    expect(spawnEnv).not.toHaveProperty('MAX_TAILORING_ITERATIONS')
     expect(child.unref).toHaveBeenCalledOnce()
   })
 

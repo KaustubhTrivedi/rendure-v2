@@ -1,13 +1,7 @@
-import { spawn } from 'node:child_process'
-import { resolve } from 'node:path'
 import { pool } from './db.js'
 import { decrypt } from './crypto.js'
+import { runPipeline } from './execution-adapter.js'
 
-/**
- * Absolute path to the project root (parent of api/).
- * api/src/job-submission.ts → api/src/ → api/ → project root via resolve('..', '..')
- */
-const PROJECT_ROOT = process.env.PROJECT_ROOT ?? resolve(import.meta.dirname, '..', '..')
 
 /**
  * Result of a job submission attempt.
@@ -59,14 +53,12 @@ export function statusUrl(jobId: string): string {
  * 1. Validates the URL is parseable.
  * 2. Checks for an existing duplicate entry.
  * 3. Inserts a new `jobs` row with status `'new'`.
- * 4. Spawns the Python orchestrator as a detached subprocess.
- * 5. Handles spawn errors by writing error status + pipeline_event to the DB.
- *
+ * 4. Dispatches the Python orchestrator through the execution adapter.
+ * 5. Returns immediately while the detached subprocess continues in the background.
  * Returns a discriminated `JobSubmitResult` — callers should check `result.statusCode`
  * and either call `c.json(result.body, result.statusCode)` for 200-level responses or
  * `httpError(c, result.statusCode, result.errorCode, result.title)` for error responses.
  *
- * This function never throws for expected error conditions (invalid input, duplicates,
  * spawn failures). Unexpected errors (DB connection loss, etc.) propagate normally.
  */
 export async function submitJobUrl(url: string): Promise<JobSubmitResult> {
@@ -141,35 +133,8 @@ export async function submitJobUrl(url: string): Promise<JobSubmitResult> {
     if (val) pipelineEnv[envKey] = val
   }
 
-  // 5. Spawn the pipeline detached — we don't wait for it to finish
-  const child = spawn(
-    'uv',
-    ['run', 'python', 'run_agents.py', url, '--job-id', job_id],
-    {
-      cwd: PROJECT_ROOT,
-      detached: true,
-      stdio: 'ignore',
-      env: pipelineEnv,
-    },
-  )
-  child.unref()
-
-  // 6. Handle spawn errors by recording error in DB
-  child.on('error', async (error) => {
-    try {
-      await pool.query(
-        `UPDATE jobs SET status = 'error', updated_at = NOW() WHERE job_id = $1`,
-        [job_id],
-      )
-      await pool.query(
-        `INSERT INTO pipeline_events (job_id, event_type, agent_name, detail, metadata)
-         VALUES ($1, 'pipeline_error', 'api', $2, $3)`,
-        [job_id, `Failed to spawn pipeline worker: ${error.message}`, { reason: error.message }],
-      )
-    } catch {
-      // The request has already returned; DB write failures are not recoverable here.
-    }
-  })
+  // 5. Dispatch the pipeline through the execution adapter — we don't wait for it to finish
+  runPipeline(url, job_id, pool, pipelineEnv)
 
   // Return immediately — pipeline runs in background
   return {

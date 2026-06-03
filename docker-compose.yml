@@ -59,6 +59,7 @@ services:
       AGENT_TIMEOUT_SECONDS: ${AGENT_TIMEOUT_SECONDS:-300}
       POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-5}
       JINA_API_KEY: ${JINA_API_KEY:-}
+      CODEX_OAUTH_ENABLED: ${CODEX_OAUTH_ENABLED:-true}
       RESUME_PDF_CACHE_DIR: /var/cache/rendure/resumes
     volumes:
       - resume_pdf_cache:/var/cache/rendure/resumes
@@ -77,6 +78,9 @@ services:
       args:
         VITE_API_URL: /api
         VITE_API_KEY: ${RENDURE_API_KEY:-this_is_the_api_key}
+        # Single source of truth: CODEX_OAUTH_ENABLED in .env drives both the
+        # API (runtime env) and the frontend (build-time VITE_ flag).
+        VITE_CODEX_OAUTH_ENABLED: ${CODEX_OAUTH_ENABLED:-true}
     environment:
       RENDURE_API_KEY: ${RENDURE_API_KEY:-this_is_the_api_key}
     restart: unless-stopped

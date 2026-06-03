@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path'
 import jobs from './routes/jobs.js'
 import profile from './routes/profile.js'
 import telegram from './routes/telegram.js'
-import { codexAuth, codexAuthPublic } from './routes/codex-auth.js'
+import { codexAuth, codexAuthPublic, isCodexOAuthEnabled } from './routes/codex-auth.js'
 import { logger, loggerMiddleware } from './middleware/logger.js'
 import { apiKeyMiddleware, assertApiKeyConfigured } from './middleware/apiKey.js'
 import { checkRenderCvAvailable } from './resume-render.js'
@@ -45,8 +45,11 @@ app.use('*', loggerMiddleware())
 app.use('/profile/*', apiKeyMiddleware())
 app.use('/jobs/*', apiKeyMiddleware())
 
-// Codex OAuth callback must be public (no API key) — OpenAI redirects here
-app.route('/codex-auth', codexAuthPublic)
+// Codex OAuth callback must be public (no API key) — OpenAI redirects here.
+// Gated behind CODEX_OAUTH_ENABLED (default ON for self-hosting; hosted build opts out).
+if (isCodexOAuthEnabled()) {
+  app.route('/codex-auth', codexAuthPublic)
+}
 
 app.get('/', (c) => {
   return c.json({ ok: true, version: pkg.version })
@@ -54,7 +57,9 @@ app.get('/', (c) => {
 
 app.route('/telegram', telegram)
 app.route('/profile', profile)
-app.route('/profile/codex-auth', codexAuth)
+if (isCodexOAuthEnabled()) {
+  app.route('/profile/codex-auth', codexAuth)
+}
 app.route('/jobs', jobs)
 
 if (process.env.NODE_ENV !== 'test') {

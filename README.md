@@ -96,6 +96,29 @@ PDF rendering:
 | `RESUME_PDF_RENDER_CONCURRENCY` | `2` | Concurrent RenderCV jobs |
 | `RESUME_PDF_RENDER_TIMEOUT_MS` | `30000` | Render timeout |
 
+## Per-Target Env Templates
+
+Rendure supports three deployment targets, selected by the `DEPLOY_TARGET` environment
+variable:
+
+| Target | Template | When to Use |
+|--------|----------|-------------|
+| `self-hosted` | `.env.self-hosted` | Your own Postgres + local pipeline (canonical — the default when `DEPLOY_TARGET` is unset) |
+| `cloud` | `.env.cloud` | Managed Postgres + worker queue + centralized keys (Phase 9+) |
+| `browser` | `.env.browser` | Public demo — PGlite/IndexedDB in the browser, BYOK, zero server data (Phases 10a/10b) |
+
+Each template lists only the variables that its target actually uses.  Secrets use
+unmistakable placeholders (`changeme-...`, `<generate-with-openssl>`) — replace them
+before running.  No real secrets are committed.
+
+The existing `.env.dev.example` / `.env.production.example` and their `.env.dev` /
+`.env` copies are **unchanged** and continue to serve the docker-compose dev and
+production splits.  The new `DEPLOY_TARGET` templates are an additional, independent
+configuration layer — they do not replace or modify the existing dev/prod flow.
+
+Real secrets stay gitignored (`.env`, `.env.*`).  Only these placeholder templates are
+committed to the repository.
+
 ## How The Pipeline Works
 
 The main CLI entry point is:
