@@ -34,3 +34,13 @@ def test_readme_includes_one_command_bootstrap():
     readme = (ROOT / "README.md").read_text()
 
     assert "curl -fsSL https://raw.githubusercontent.com/KaustubhTrivedi/rendure-v2/main/scripts/bootstrap.sh | bash" in readme
+
+
+def test_landing_pages_use_one_command_bootstrap():
+    bootstrap_command = "curl -fsSL https://raw.githubusercontent.com/KaustubhTrivedi/rendure-v2/main/scripts/bootstrap.sh | bash"
+
+    react_landing = (ROOT / "frontend" / "app" / "routes" / "landing.tsx").read_text()
+    static_landing = (ROOT / "landing" / "index.html").read_text()
+
+    assert bootstrap_command in react_landing
+    assert bootstrap_command in static_landing
