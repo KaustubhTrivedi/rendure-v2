@@ -7,13 +7,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def compose_config() -> dict:
+def compose_config(compose_file: str = "docker-compose.yml") -> dict:
     result = subprocess.run(
         [
             "docker",
             "compose",
             "-f",
-            "docker-compose.yml",
+            compose_file,
             "--profile",
             "agents",
             "config",
@@ -80,3 +80,11 @@ def test_nginx_proxy_injects_api_key_header():
     template = (ROOT / "frontend" / "nginx.conf.template").read_text()
 
     assert 'proxy_set_header X-API-Key "${RENDURE_API_KEY}";' in template
+
+
+def test_landing_compose_exposes_internal_nginx_port_for_dokploy_domains():
+    config = compose_config("docker-compose.landing.yml")
+    landing = config["services"]["landing"]
+
+    assert landing["expose"] == ["80"]
+    assert "ports" not in landing
