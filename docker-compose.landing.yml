@@ -2,16 +2,12 @@
 # No API, no agents, no Postgres. Just the static marketing page on nginx.
 #
 #   docker compose -f docker-compose.landing.yml up -d --build
-#   open http://localhost:8088
-#
-# Override the published port with LANDING_PORT, e.g.
-#   LANDING_PORT=3000 docker compose -f docker-compose.landing.yml up -d --build
+# Then configure the Dokploy domain to route to service "landing" on port 80.
 
 services:
   landing:
     build: ./landing
     image: rendure-landing
-    container_name: rendure-landing
-    ports:
-      - "${LANDING_PORT:-8088}:80"
+    expose:
+      - "80"
     restart: unless-stopped
