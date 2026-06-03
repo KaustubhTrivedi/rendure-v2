@@ -11,7 +11,9 @@ export const meta: MetaFunction = () => [
   },
 ];
 
-const GITHUB_URL = "https://github.com";
+const GITHUB_URL = "https://github.com/KaustubhTrivedi/rendure-v2";
+const BOOTSTRAP_COMMAND =
+  "curl -fsSL https://raw.githubusercontent.com/KaustubhTrivedi/rendure-v2/main/scripts/bootstrap.sh | bash";
 
 function Nav() {
   return (
@@ -547,8 +549,8 @@ const FAQS: QA[] = [
     q: "How do I run it?",
     a: (
       <>
-        Clone the repo, set your key, and bring everything up with{" "}
-        <b>docker compose up -d --build</b>. No waitlist, no signup, no hosted tier to wait for.
+        Paste the bootstrap command into your terminal, then open the local web app and complete
+        onboarding. No waitlist, no signup, no hosted tier to wait for.
       </>
     ),
   },
@@ -580,10 +582,9 @@ function FAQ() {
 
 function FinalCTA() {
   const [copied, setCopied] = useState(false);
-  const cmd = "docker compose up -d --build";
   function copy() {
     navigator.clipboard
-      ?.writeText(cmd)
+      ?.writeText(BOOTSTRAP_COMMAND)
       .then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 1400);
@@ -602,7 +603,7 @@ function FinalCTA() {
           <div>
             <div className="codeblock">
               <span className="sym">$</span>
-              <span className="cmd">{cmd}</span>
+              <span className="cmd">{BOOTSTRAP_COMMAND}</span>
               <button className="copy" onClick={copy} aria-label="Copy command">
                 {copied ? "COPIED ✓" : "COPY"}
               </button>
