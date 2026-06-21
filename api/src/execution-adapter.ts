@@ -4,6 +4,24 @@ import type pg from 'pg'
 
 const PROJECT_ROOT = process.env.PROJECT_ROOT ?? resolve(import.meta.dirname, '..', '..')
 
+/**
+ * Spawn the job discovery agent as a detached, fire-and-forget process.
+ * Returns immediately — the discovery run continues in the background.
+ */
+export function runDiscovery(pipelineEnv: NodeJS.ProcessEnv = process.env): void {
+  const child = spawn(
+    'uv',
+    ['run', 'python', 'run_discovery.py'],
+    {
+      cwd: pipelineEnv.PROJECT_ROOT ?? PROJECT_ROOT,
+      detached: true,
+      stdio: 'ignore',
+      env: pipelineEnv,
+    },
+  )
+  child.unref()
+}
+
 export function runPipeline(
   url: string,
   jobId: string,

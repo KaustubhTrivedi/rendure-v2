@@ -109,6 +109,29 @@ export const api = {
     models: () => request<OpenRouterModel[]>("/profile/codex-auth/models"),
   },
 
+  discovery: {
+    getJobs: (status?: string) =>
+      request<import("./types").DiscoveredJobsResponse>(
+        `/discovery/jobs?status=${status ?? "all"}&limit=50`,
+      ),
+    getRecentJobs: (limit = 10) =>
+      request<import("./types").DiscoveredJobsResponse>(
+        `/discovery/jobs?status=all&limit=${limit}&sort=recent`,
+      ),
+    approve: (id: string) =>
+      request<{ job_id: string; status_url: string }>(
+        `/discovery/jobs/${id}/approve`,
+        { method: "POST" },
+      ),
+    reject: (id: string) =>
+      request<{ id: string; status: string }>(
+        `/discovery/jobs/${id}/reject`,
+        { method: "POST" },
+      ),
+    run: () =>
+      request<{ message: string }>("/discovery/run", { method: "POST" }),
+  },
+
   health: {
     check: () => request<{ ok: boolean; version: string }>("/"),
   },

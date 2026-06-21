@@ -101,8 +101,46 @@ body {
   display: inline-block;
 }
 
-.nav .gear {
+.nav .right-slot {
   justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav .discover-nav-link {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--black);
+  border: var(--border);
+  padding: 10px 14px;
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease;
+  white-space: nowrap;
+}
+
+.nav .discover-nav-link:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 0 #000;
+  background: var(--yellow);
+}
+
+.nav .discover-nav-link:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 0 #000;
+}
+
+.nav .discover-nav-link.active {
+  background: var(--black);
+  color: var(--white);
+}
+
+.nav .gear {
   width: 44px;
   height: 44px;
   border: var(--border);
@@ -895,6 +933,147 @@ body {
 
 .system dd .ok {
   color: var(--green);
+}
+
+/* ─── Discovered Jobs Sub-table (dashboard) ──────────────────────────── */
+.discovered-section {
+  margin-top: 28px;
+}
+
+.discovered-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.discovered-section-head .ttl {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--black);
+}
+
+.discovered-section-head .view-all {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--black);
+  border: var(--border);
+  padding: 7px 13px;
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  white-space: nowrap;
+}
+
+.discovered-section-head .view-all:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 0 #000;
+}
+
+.discovered-section-head .view-all:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 0 #000;
+}
+
+.discovered-mini-table {
+  border: var(--border);
+  background: var(--white);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.dm-row {
+  display: grid;
+  grid-template-columns: 1.8fr 0.9fr 0.55fr 0.55fr 0.7fr;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 20px;
+  border-bottom: 2px solid var(--black);
+  transition: background 0.08s ease;
+}
+
+.dm-row:last-child {
+  border-bottom: none;
+}
+
+.dm-row.dm-head {
+  background: var(--black);
+  color: var(--white);
+}
+
+.dm-row.dm-head .col {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--white);
+}
+
+.dm-row.dm-body:hover {
+  background: #fafaf5;
+}
+
+.dm-row .dm-job .dm-company {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+}
+
+.dm-row .dm-job .dm-role {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.dm-score {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.dm-score.hi { color: var(--green); }
+.dm-score.mid { color: var(--ink); }
+.dm-score.lo { color: var(--red); }
+
+.dm-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.dm-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: 2px solid var(--black);
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.dm-status-badge.pending { background: var(--yellow); }
+.dm-status-badge.queued { background: var(--black); color: var(--white); }
+.dm-status-badge.rejected { background: var(--white); color: var(--red); border-color: var(--red); opacity: 0.6; }
+
+.dm-empty {
+  padding: 28px 20px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  letter-spacing: 0.04em;
 }
 
 /* Footer meta */
