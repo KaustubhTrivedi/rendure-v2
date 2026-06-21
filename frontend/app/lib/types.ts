@@ -146,3 +146,27 @@ export interface ResumeUploadResponse {
   parsed: ParsedProfile | null;
   parse_error?: string;
 }
+
+export type DiscoveredJobStatus = 'pending_review' | 'queued' | 'rejected' | 'duplicate';
+
+export interface DiscoveredJob {
+  id: string;
+  job_url: string;
+  title: string | null;
+  company: string | null;
+  location: string | null;
+  platform: string | null;
+  raw_snippet: string | null;
+  relevance_score: number | null;
+  status: DiscoveredJobStatus;
+  job_id: string | null;
+  discovered_at: string;
+  reviewed_at: string | null;
+}
+
+export interface DiscoveredJobsResponse {
+  jobs: DiscoveredJob[];
+  total: number;
+  limit: number;
+  offset: number;
+}

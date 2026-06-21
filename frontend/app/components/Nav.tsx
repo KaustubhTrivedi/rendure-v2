@@ -19,7 +19,8 @@ const GearSvg = ({ stroke = "#000" }: { stroke?: string }) => (
 type NavProps =
   | { variant: "dashboard" }
   | { variant: "back"; backTo: string; backLabel: string }
-  | { variant: "settings" };
+  | { variant: "settings" }
+  | { variant: "discover"; pendingCount: number };
 
 export function Nav(props: NavProps) {
   const [version, setVersion] = useState<string | null>(null);
@@ -60,6 +61,10 @@ export function Nav(props: NavProps) {
       <NavLink to={props.backTo} className="back mono">
         ← {props.backLabel}
       </NavLink>
+    ) : props.variant === "discover" ? (
+      <span className="crumbs">
+        <b>DISCOVER</b> · {props.pendingCount} PENDING
+      </span>
     ) : (
       <span className="crumbs">
         <b>DASHBOARD</b> · {version ? `v${version}` : ""}
@@ -73,9 +78,14 @@ export function Nav(props: NavProps) {
         <span className="dot" />
         RENDURE
       </NavLink>
-      <NavLink to="/settings" className="gear" aria-label="Settings">
-        <GearSvg />
-      </NavLink>
+      <div className="right-slot">
+        <NavLink to="/discover" className="discover-nav-link mono">
+          DISCOVER
+        </NavLink>
+        <NavLink to="/settings" className="gear" aria-label="Settings">
+          <GearSvg />
+        </NavLink>
+      </div>
     </nav>
   );
 }

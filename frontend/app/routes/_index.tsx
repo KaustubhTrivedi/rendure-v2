@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api, ApiError } from "~/lib/api";
-import type { Job, JobStatus } from "~/lib/types";
+import type { Job, JobStatus, DiscoveredJob } from "~/lib/types";
 import { Link, useNavigate } from "react-router";
 import { Nav } from "../components/Nav";
 
@@ -61,6 +61,23 @@ const AGENTS = [
   { name: "confirmation", role: "render · sign · deliver", status: "idle" },
 ];
 
+function fmtDiscoveredTime(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return mins + "m ago";
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return hours + "h ago";
+  return d.toLocaleDateString();
+}
+
+function discRelClass(r: number | null): string {
+  if (r === null) return "mid";
+  return r >= 0.7 ? "hi" : r >= 0.4 ? "mid" : "lo";
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState("all");
@@ -71,6 +88,7 @@ export default function Dashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [health, setHealth] = useState<{ ok: boolean; version: string } | null>(null);
+  const [recentDiscovered, setRecentDiscovered] = useState<DiscoveredJob[]>([]);
 
   useEffect(() => {
     if (!localStorage.getItem("rendure_onboarded")) {
@@ -88,6 +106,12 @@ export default function Dashboard() {
   useEffect(() => {
     api.health.check()
       .then(setHealth)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    api.discovery.getRecentJobs(10)
+      .then((res) => setRecentDiscovered(res.jobs))
       .catch(() => {});
   }, []);
 
@@ -270,6 +294,53 @@ export default function Dashboard() {
           </Link>
           );
         })}
+      </section>
+
+      {/* Discovered Jobs Sub-table */}
+      <section className="discovered-section" aria-label="Recently discovered jobs">
+        <div className="discovered-section-head">
+          <span className="ttl">▌ Recently Discovered · {recentDiscovered.length} newest</span>
+          <Link to="/discover" className="view-all">VIEW ALL →</Link>
+        </div>
+        <div className="discovered-mini-table">
+          {recentDiscovered.length === 0 ? (
+            <div className="dm-empty mono">
+              no discovered jobs · run discovery or configure companies in settings
+            </div>
+          ) : (
+            <>
+              <div className="dm-row dm-head">
+                <div className="col">Job</div>
+                <div className="col">Platform</div>
+                <div className="col">Relevance</div>
+                <div className="col">Status</div>
+                <div className="col">Found</div>
+              </div>
+              {recentDiscovered.map((job) => (
+                <div key={job.id} className="dm-row dm-body">
+                  <div className="dm-job">
+                    <div className="dm-company">{job.company ?? "—"}</div>
+                    <div className="dm-role">{job.title ?? "—"}</div>
+                  </div>
+                  <div className="col">
+                    <span className="mono" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                      {job.platform ?? "—"}
+                    </span>
+                  </div>
+                  <div className={`dm-score ${discRelClass(job.relevance_score)}`}>
+                    {job.relevance_score !== null ? job.relevance_score.toFixed(3) : "—"}
+                  </div>
+                  <div className="col">
+                    <span className={`dm-status-badge ${job.status === "pending_review" ? "pending" : job.status === "queued" ? "queued" : "rejected"}`}>
+                      {job.status === "pending_review" ? "PENDING" : job.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="dm-time">{fmtDiscoveredTime(job.discovered_at)}</div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
       </section>
 
       {/* Bottom: Activity + Agents */}

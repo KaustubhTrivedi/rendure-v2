@@ -17,6 +17,9 @@ dependencies = [
     "pytest>=8.3.0",
     "cryptography>=48.0.0",
     "rendercv[full]>=2.8",
+    "scrapling[fetchers]>=0.4.8",
+    "apscheduler>=3.10",
+    "feedparser>=6.0.12",
 ]
 
 [tool.uv]
