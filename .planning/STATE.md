@@ -1,37 +1,33 @@
 ---
 gsd_state_version: 1.0
-milestone: v4.0
-milestone_name: Config-driven Multi-target Deployment
-status: ready_to_plan
-stopped_at: Phase 6 context gathered — ready to plan
-last_updated: 2026-06-02T18:00:00.000Z
-last_activity: 2026-06-02 -- Phase 06 context gathered
+milestone: v4.1
+milestone_name: Job Search Operating System v1
+status: planning
+last_updated: "2026-06-22T22:53:52.552Z"
+last_activity: 2026-06-22
 progress:
-  total_phases: 7
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 14
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-30)
+See: .planning/PROJECT.md (updated 2026-06-22)
 
 **Core value:** A job seeker pastes a URL and gets back a tailored, high-quality resume without touching a single line of their resume themselves.
-**Current focus:** Phase 6 — seam adapters (self hosted reference implementation)
+**Current focus:** Milestone v4.1 — Job Search Operating System v1 requirements and roadmap
 
 ## Current Position
 
-Phase: 6
-Plan: Not started
-Status: Context gathered — ready to plan
-Next: /gsd-plan-phase 6
-Last activity: 2026-06-02
-
-Progress: [######----] 67% (2/3 plans complete in Phase 5)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-22 — Milestone v4.1 started
 
 ## Performance Metrics
 
@@ -73,6 +69,12 @@ Progress: [######----] 67% (2/3 plans complete in Phase 5)
 - Frontend bootstrap (`frontend/` — Vite + React 19 + React Compiler) — built as part of Phase 10a/10b
 - Deploy target: Docker self-hosted via Dokploy + Traefik
 
+### Decisions (v4.1)
+
+- 2026-06-22: Milestone v4.1 starts from the approved "Rendure — Job Search Operating System v1" design: Career Vault first, then application tracking, achievement discovery, recruiter CRM, and explainable match scoring.
+- 2026-06-22: Evidence-first is non-negotiable. AI may extract, group, rank, and draft from user-provided material, but trusted evidence requires explicit user approval and generated claims must retain provenance.
+- 2026-06-22: Existing tailoring remains load-bearing. New Vault and tracker features must preserve the current URL-to-tailored-resume flow and record Vault evidence usage without breaking old resume versions.
+
 ### Pending Todos
 
 - Legacy Clerk-based tests and DB migrations from v2.0 should be cleaned up — not a blocker but worth scheduling before Phase 6
@@ -87,7 +89,7 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-05-30T10:22:08.695Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-deploy-target-foundation/05-CONTEXT.md
-Next action: `/gsd-plan-phase 5`
+Last session: 2026-06-22T22:53:52.552Z
+Stopped at: Milestone v4.1 started
+Resume file: —
+Next action: define requirements and roadmap for v4.1
