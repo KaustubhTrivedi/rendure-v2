@@ -452,22 +452,22 @@ This is the pattern to preserve: log method/path/status/duration/job_id, not hea
 |---|-------|---------|---------------|
 | — | No `[ASSUMED]` claims were used as recommendations in this research. [VERIFIED: source review] | — | — |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should Phase 11 remove existing `llm_prompt_trace` rows from live databases or only stop future writes?**
    - What we know: current code can write full prompts into `pipeline_events.payload`. [VERIFIED: agents/resume_tailor.py; agents/quality_analyst.py]
    - What's unclear: no live DB was queried, so existing row contents and retention expectations are unknown. [VERIFIED: environment audit]
-   - Recommendation: plan code/test remediation now and add a human-checkpoint or optional one-off migration only if live data needs cleanup. [VERIFIED: 11-CONTEXT.md]
+   - Resolution: Phase 11 will stop future raw prompt writes through tested code changes in Plan 03. Live database cleanup is explicitly out of scope for execution because no live DB was available and retention expectations are unknown; if production rows need cleanup, handle it as a separate operator-approved maintenance task after inspection. [VERIFIED: 11-CONTEXT.md]
 
 2. **Should the Python orchestrator continue auto-building PDFs after confirmation?**
    - What we know: API PDF retrieval is existing client behavior, but the Python orchestrator calls `_export_and_build_pdf` after confirmation. [VERIFIED: api/src/routes/jobs.ts; agents/orchestrator.py]
    - What's unclear: AGENTS says PDF rendering is manual, while current CLI behavior attempts RenderCV Docker after approval. [CITED: AGENTS.md; VERIFIED: agents/orchestrator.py]
-   - Recommendation: preserve API PDF route compatibility, then decide whether CLI auto-render is an existing behavior to keep or a guardrail violation to test and remove. [VERIFIED: COMPAT-02; 11-CONTEXT.md]
+   - Resolution: Preserve existing API PDF retrieval/rendering compatibility and do not classify PDF render/retrieve/download behavior as auto-apply or email sending. Plan 04 guardrails explicitly allow `render_pdf`, `retrieve_pdf`, and `download_resume` while rejecting submit/apply/send actions. [VERIFIED: COMPAT-02; 11-CONTEXT.md]
 
 3. **Should Phase 11 create empty future-domain tables or only tests/docs?**
    - What we know: context allows compatibility scaffolding but forbids half-built user-facing workflows. [VERIFIED: 11-CONTEXT.md]
    - What's unclear: planner must decide whether guardrail tests alone are sufficient or whether additive tables like `application_timeline` should exist before Phase 14. [VERIFIED: ROADMAP.md]
-   - Recommendation: prefer tests/helpers first; add schema scaffolding only if it directly enforces COMPAT-04/05 without exposing routes. [VERIFIED: 11-CONTEXT.md]
+   - Resolution: Phase 11 may create only additive compatibility boundary scaffolding with no user-facing routes or UI. Plan 02 uses a small additive SQL boundary to enforce application status/timeline separation; later Career Vault, application tracker, recruiter CRM, and match-score workflows remain deferred to their roadmap phases. [VERIFIED: 11-CONTEXT.md]
 
 ## Environment Availability
 
