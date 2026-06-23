@@ -36,7 +36,12 @@ v4.1 turns Rendure from a URL-to-tailored-resume workflow into an evidence-backe
   3. New migrations are additive, leave `jobs.qa_score` and `jobs.iteration_count` trigger-owned, and keep application workflow status out of `jobs.status`.
   4. Pipeline audit events remain pipeline-only while private Vault, recruiter, and prompt content is redacted from logs unless required for a user-visible artifact.
   5. Automated guardrail tests cover no-Vault tailoring fallback, approval-gated evidence writes, source-required missing evidence, application status separation, no auto-apply, and no automatic email sending.
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 11-01-PLAN.md - Existing URL/job API/SSE/resume/PDF/QA compatibility contract tests
+- [ ] 11-02-PLAN.md - Additive migration, application status separation, and timeline audit boundaries
+- [ ] 11-03-PLAN.md - Python pipeline prompt/audit redaction implementation and tests
+- [ ] 11-04-PLAN.md - Evidence/source/no-send/no-auto-apply guardrail tests
 
 ### Phase 12: Career Vault Schema and API Foundation
 **Goal**: User has an approved Career Vault data foundation where source artifacts, profile preferences, roles, projects, achievements, skills, certifications, STAR stories, and provenance can be managed without allowing AI to create trusted evidence directly.
@@ -134,7 +139,7 @@ Phases execute in roadmap order: 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 11. Architecture, Compatibility, and Migration Plan | 0/? | Not started | - |
+| 11. Architecture, Compatibility, and Migration Plan | 0/4 | Not started | - |
 | 12. Career Vault Schema and API Foundation | 0/? | Not started | - |
 | 13. Vault Import/Review UI and Tailoring Integration | 0/? | Not started | - |
 | 14. Application Tracker MVP | 0/? | Not started | - |
