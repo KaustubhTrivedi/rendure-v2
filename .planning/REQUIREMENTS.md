@@ -137,16 +137,81 @@
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
+Which phases cover which requirements.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| VAULT-01 | Phase 12 | Pending |
+| VAULT-02 | Phase 12 | Pending |
+| VAULT-03 | Phase 12 | Pending |
+| VAULT-04 | Phase 12 | Pending |
+| VAULT-05 | Phase 12 | Pending |
+| VAULT-06 | Phase 12 | Pending |
+| VAULT-07 | Phase 12 | Pending |
+| VAULT-08 | Phase 12 | Pending |
+| VAULT-09 | Phase 12 | Pending |
+| REVIEW-01 | Phase 13 | Pending |
+| REVIEW-02 | Phase 13 | Pending |
+| REVIEW-03 | Phase 13 | Pending |
+| REVIEW-04 | Phase 13 | Pending |
+| REVIEW-05 | Phase 13 | Pending |
+| REVIEW-06 | Phase 13 | Pending |
+| REVIEW-07 | Phase 13 | Pending |
+| REVIEW-08 | Phase 13 | Pending |
+| EVID-01 | Phase 13 | Pending |
+| EVID-02 | Phase 13 | Pending |
+| EVID-03 | Phase 13 | Pending |
+| EVID-04 | Phase 13 | Pending |
+| EVID-05 | Phase 13 | Pending |
+| EVID-06 | Phase 13 | Pending |
+| COMPAT-01 | Phase 11 | Pending |
+| COMPAT-02 | Phase 11 | Pending |
+| COMPAT-03 | Phase 11 | Pending |
+| COMPAT-04 | Phase 11 | Pending |
+| COMPAT-05 | Phase 11 | Pending |
+| COMPAT-06 | Phase 11 | Pending |
+| APP-01 | Phase 14 | Pending |
+| APP-02 | Phase 14 | Pending |
+| APP-03 | Phase 14 | Pending |
+| APP-04 | Phase 14 | Pending |
+| APP-05 | Phase 14 | Pending |
+| APP-06 | Phase 14 | Pending |
+| APP-07 | Phase 14 | Pending |
+| APP-08 | Phase 14 | Pending |
+| APP-09 | Phase 14 | Pending |
+| APP-10 | Phase 14 | Pending |
+| DISC-01 | Phase 15 | Pending |
+| DISC-02 | Phase 15 | Pending |
+| DISC-03 | Phase 15 | Pending |
+| DISC-04 | Phase 15 | Pending |
+| DISC-05 | Phase 15 | Pending |
+| DISC-06 | Phase 15 | Pending |
+| DISC-07 | Phase 15 | Pending |
+| CRM-01 | Phase 16 | Pending |
+| CRM-02 | Phase 16 | Pending |
+| CRM-03 | Phase 16 | Pending |
+| CRM-04 | Phase 16 | Pending |
+| CRM-05 | Phase 16 | Pending |
+| CRM-06 | Phase 16 | Pending |
+| SCORE-01 | Phase 17 | Pending |
+| SCORE-02 | Phase 17 | Pending |
+| SCORE-03 | Phase 17 | Pending |
+| SCORE-04 | Phase 17 | Pending |
+| SCORE-05 | Phase 17 | Pending |
+| SCORE-06 | Phase 17 | Pending |
+| SCORE-07 | Phase 17 | Pending |
+| GUARD-01 | Phase 12 | Pending |
+| GUARD-02 | Phase 12 | Pending |
+| GUARD-03 | Phase 13 | Pending |
+| GUARD-04 | Phase 14 | Pending |
+| GUARD-05 | Phase 16 | Pending |
+| GUARD-06 | Phase 11 | Pending |
 
 **Coverage:**
 - v4.1 requirements: 65 total
-- Mapped to phases: 0
-- Unmapped: 65
+- Mapped to phases: 65
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-06-22*
-*Last updated: 2026-06-22 after v4.1 requirements definition*
+*Last updated: 2026-06-23 after v4.1 roadmap creation*

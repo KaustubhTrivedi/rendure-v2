@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Job Search Operating System v1
-status: planning
-last_updated: "2026-06-22T22:53:52.552Z"
-last_activity: 2026-06-22
+status: ready_to_plan
+last_updated: "2026-06-23T08:19:28Z"
+last_activity: 2026-06-23
 progress:
-  total_phases: 0
+  total_phases: 7
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,76 +20,50 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-22)
 
 **Core value:** A job seeker pastes a URL and gets back a tailored, high-quality resume without touching a single line of their resume themselves.
-**Current focus:** Milestone v4.1 — Job Search Operating System v1 requirements and roadmap
+**Current focus:** Milestone v4.1 - Job Search Operating System v1
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-06-22 — Milestone v4.1 started
+Phase: 11 of 17 (Architecture, Compatibility, and Migration Plan), first of 7 v4.1 phases
+Plan: TBD
+Status: Ready to plan Phase 11
+Last activity: 2026-06-23 - v4.1 roadmap created
+
+Progress: [----------] 0%
 
 ## Performance Metrics
 
-| Phase | Plan | Duration | Tasks | Files | Tests |
-|-------|------|----------|-------|-------|-------|
-| 04-01 | 01 | 4 min | 3 | 3 | 37 |
-| 04-02 | 02 | 12 min | 3 | 2 | 9 |
-| 04-03 | 03 | 2 min | 3 | 4 | 19 |
-| 04-04 | 04 | 9 min | 3 | 4 | 18 |
-| 05-01 | 01 | 2 min | 3 | 3 | 10 |
-| 05-03 | 03 | 3 min | 3 | 5 | — |
+| Phase | Plans Complete | Status |
+|-------|----------------|--------|
+| 11 | 0/? | Not started |
+| 12 | 0/? | Not started |
+| 13 | 0/? | Not started |
+| 14 | 0/? | Not started |
+| 15 | 0/? | Not started |
+| 16 | 0/? | Not started |
+| 17 | 0/? | Not started |
 
 ## Accumulated Context
 
-### Decisions (v4.0)
+### Decisions
 
-- 2026-05-30: Browser phase split into 10a (DB & Assets) and 10b (Orchestration & BYOK) — the browser target carries 5 requirements that form two distinct delivery boundaries: the storage/asset layer must exist before the orchestration loop can run
-- 2026-05-30: Phase ordering: 5 (config) → 6 (seams) → 7 (agents) + 8 (scraper, parallel-eligible after 6) → 9 (cloud) → 10a → 10b; cloud and browser both depend on seams + stateless agents
-- 2026-05-30: Self-hosted constraint is hard: every phase detail section that touches the self-hosted path includes a green-suite success criterion — it is never "temporarily broken"
-- 2026-05-30: DEPLOY_TARGET config module is dual-language (TS for the Hono API, Python for agents); both must default to `self-hosted` when the env var is absent
-- 2026-05-30: Separate pure resolve() from frozen config singleton — tests import resolve dynamically (vi.resetModules + dynamic await import) to avoid the singleton throwing in test env on missing DATABASE_URL; tests set DATABASE_URL in beforeAll/beforeEach matching app.test.ts pattern
-- 2026-05-30: Deep-freeze (Object.freeze on each nested seam sub-object, not just the top) — shallow freeze leaves db/execution/credentials mutable
-- 2026-05-30: Shared parity fixture anchored at repo-root tests/fixtures/ — read by vitest via fileURLToPath + readFileSync idiom matching existing index.ts pattern
-- 2026-05-30: Per-target env templates (D-08/D-09/D-10): three .env.{target} files committed with placeholder-only secrets (changeme, <generate-with-openssl>); each template lists only its target's actual vars; existing .env.dev.example/.env.production.example unchanged; README documents relationship
-
-### Decisions (v3.0, still relevant)
-
-- 2026-05-13: Drop Clerk auth — open-source self-hosted, single API key (`RENDURE_API_KEY`)
-- 2026-05-13: Keep Hono/TypeScript backend (`api/`) — FastAPI rebuild dropped
-- 2026-05-13: Single-user mode — one `user_profile` row, no multi-tenant identity
-- 2026-05-13: Add Telegram bot as a first-class client
-- 2026-05-21: Shared job submission helper uses discriminated union result type
-- 2026-05-21: pg notification treated as wake-up only — re-queries canonical rows with parameterized SQL
-- 2026-05-21: Recipient comes only from `user_profile.notify_telegram_chat_id`, never from incoming payloads
-
-### Decisions (carry-over, always relevant)
-
-- Pipeline agents and Postgres schema unchanged — schema runs unmodified in Postgres and PGlite
-- Frontend bootstrap (`frontend/` — Vite + React 19 + React Compiler) — built as part of Phase 10a/10b
-- Deploy target: Docker self-hosted via Dokploy + Traefik
-
-### Decisions (v4.1)
-
-- 2026-06-22: Milestone v4.1 starts from the approved "Rendure — Job Search Operating System v1" design: Career Vault first, then application tracking, achievement discovery, recruiter CRM, and explainable match scoring.
-- 2026-06-22: Evidence-first is non-negotiable. AI may extract, group, rank, and draft from user-provided material, but trusted evidence requires explicit user approval and generated claims must retain provenance.
-- 2026-06-22: Existing tailoring remains load-bearing. New Vault and tracker features must preserve the current URL-to-tailored-resume flow and record Vault evidence usage without breaking old resume versions.
+- 2026-06-23: v4.1 phase numbering continues after previous Phase 10b; active roadmap uses Phases 11-17.
+- 2026-06-23: v4.1 roadmap follows the researched delivery order: compatibility guardrails, Career Vault foundation, import/review plus tailoring, application tracker, discovery, CRM, then match scoring.
+- 2026-06-23: Existing URL-to-tailored-resume flow remains load-bearing and must work without Vault setup.
+- 2026-06-23: Trusted Vault evidence requires explicit user approval; AI can create candidates, rank evidence, and draft text only from user-provided sources.
+- 2026-06-23: Application status, application timeline, recruiter reminders, and match assessments are separate from pipeline `jobs.status`, `pipeline_events`, and QA score semantics.
 
 ### Pending Todos
 
-- Legacy Clerk-based tests and DB migrations from v2.0 should be cleaned up — not a blocker but worth scheduling before Phase 6
+- Legacy Clerk-based tests and DB migrations from v2.0 should be cleaned up when relevant; not a blocker for v4.1 roadmap planning.
 
 ### Blockers/Concerns
 
 None currently.
 
-### Quick Tasks Completed
-
-*(v3.0 history — Phases 1-4 complete. See `.planning/phases/` for summaries.)*
-
 ## Session Continuity
 
-Last session: 2026-06-22T22:53:52.552Z
-Stopped at: Milestone v4.1 started
-Resume file: —
-Next action: define requirements and roadmap for v4.1
+Last session: 2026-06-23T08:19:28Z
+Stopped at: v4.1 roadmap and traceability creation
+Resume file: None
+Next action: `$gsd-plan-phase 11`
