@@ -17,7 +17,7 @@ v4.1 turns Rendure from a URL-to-tailored-resume workflow into an evidence-backe
 - Integer phases (11, 12, 13): Planned v4.1 milestone work
 - Decimal phases (13.1, 13.2): Urgent insertions via `$gsd-phase --insert`
 
-- [ ] **Phase 11: Architecture, Compatibility, and Migration Plan** - Lock compatibility, migration, privacy, and guardrail-test boundaries before adding new domains.
+- [x] **Phase 11: Architecture, Compatibility, and Migration Plan** - Lock compatibility, migration, privacy, and guardrail-test boundaries before adding new domains.
 - [ ] **Phase 12: Career Vault Schema and API Foundation** - Establish approved Career Vault records, source artifacts, provenance, and approval-gated trusted writes.
 - [ ] **Phase 13: Vault Import/Review UI and Tailoring Integration** - Let users approve imported evidence and let tailoring use only approved evidence with a resume-version ledger.
 - [ ] **Phase 14: Application Tracker MVP** - Add user-controlled application records, workflow states, documents, timelines, board movement, and stale/follow-up indicators.
@@ -163,7 +163,7 @@ Phases execute in roadmap order: 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 11. Architecture, Compatibility, and Migration Plan | 0/4 | Not started | - |
+| 11. Architecture, Compatibility, and Migration Plan | 4/4 | Complete | 2026-06-24 |
 | 12. Career Vault Schema and API Foundation | 0/? | Not started | - |
 | 13. Vault Import/Review UI and Tailoring Integration | 0/? | Not started | - |
 | 14. Application Tracker MVP | 0/? | Not started | - |

@@ -17,6 +17,7 @@ import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
 
+from utils.audit_redaction import build_redacted_prompt_payload
 from utils.llm import extract_json, load_llm
 from utils.toon import parse_toon_table, toon_list
 
@@ -78,6 +79,27 @@ def _insert_qa_review(
         ),
     )
     return str(cur.fetchone()[0])
+
+
+def _write_prompt_trace(cur: Any, job_id: str, model: str, iteration_number: int, version_id: str, prompt: str) -> None:
+    cur.execute(
+        """
+        INSERT INTO pipeline_events
+            (job_id, event_type, agent_name, model_used, detail, payload)
+        VALUES (%s, 'llm_prompt_trace', 'quality_analyst', %s, %s, %s::jsonb)
+        """,
+        (
+            job_id,
+            model,
+            f"QA evaluation prompt sent to LLM (iteration {iteration_number})",
+            json.dumps(build_redacted_prompt_payload(
+                "quality_analyst_to_llm",
+                prompt,
+                iteration=iteration_number,
+                version_id=version_id,
+            )),
+        ),
+    )
 
 
 EVALUATION_PROMPT = """\
@@ -531,25 +553,7 @@ def run(
 
         # ── Prompt trace ──────────────────────────────────────────────────────
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO pipeline_events
-                    (job_id, event_type, agent_name, model_used, detail, payload)
-                VALUES (%s, 'llm_prompt_trace', 'quality_analyst', %s, %s, %s::jsonb)
-                """,
-                (
-                    job_id,
-                    model,
-                    f"QA evaluation prompt sent to LLM (iteration {iteration_number})",
-                    json.dumps({
-                        "direction": "quality_analyst→llm",
-                        "iteration": iteration_number,
-                        "version_id": version_id,
-                        "prompt_length": len(prompt),
-                        "prompt": prompt,
-                    }),
-                ),
-            )
+            _write_prompt_trace(cur, job_id, model, iteration_number, version_id, prompt)
         conn.commit()
 
         raw_response = llm.invoke(prompt)

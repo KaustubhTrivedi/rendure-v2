@@ -17,6 +17,7 @@ from typing import Any, Callable
 import psycopg2
 from dotenv import load_dotenv
 
+from utils.audit_redaction import build_redacted_prompt_payload
 from utils.llm import load_llm
 from utils.toon import toon_list, toon_table
 
@@ -129,6 +130,36 @@ def _load_base_resume_from_profile(conn: Any) -> str:
             "No resume found in user profile. Upload a resume via the Settings page first."
         )
     return row[0].strip()
+
+
+def _load_approved_evidence(conn: Any, job_id: str) -> list[str]:
+    """Load optional approved evidence for future Vault-assisted tailoring.
+
+    Phase 11 keeps the current URL-to-tailored-resume path working when no Vault
+    evidence exists, so the default implementation is an empty list.
+    """
+    _ = (conn, job_id)
+    return []
+
+
+def _write_prompt_trace(cur: Any, job_id: str, model: str, iteration_number: int, prompt: str) -> None:
+    cur.execute(
+        """
+        INSERT INTO pipeline_events
+            (job_id, event_type, agent_name, model_used, detail, payload)
+        VALUES (%s, 'llm_prompt_trace', 'resume_tailor', %s, %s, %s::jsonb)
+        """,
+        (
+            job_id,
+            model,
+            f"Tailoring prompt sent to LLM (iteration {iteration_number})",
+            json.dumps(build_redacted_prompt_payload(
+                "resume_tailor_to_llm",
+                prompt,
+                iteration=iteration_number,
+            )),
+        ),
+    )
 
 
 def _load_hard_constraints() -> str:
@@ -288,6 +319,8 @@ def run(
                 raise AgentError(f"No previous resume version found in DB for job {job_id}")
             base_resume = prev[0]
 
+        approved_evidence = _load_approved_evidence(conn, job_id)
+
         # ── Step 4: Rewrite via LLM ───────────────────────────────────────────
         _notify(event_callback, "    Loading hard constraints...", None)
         hard_constraints = _load_hard_constraints()
@@ -305,30 +338,14 @@ def run(
             jd_text=jd_text[:8000],
             required_skills=toon_list("required_skills", required_skills),
             nice_to_haves=toon_list("nice_to_haves", nice_to_haves) if nice_to_haves else "(none)",
+            approved_evidence=toon_list("approved_evidence", approved_evidence) if approved_evidence else "(none)",
             qa_feedback_section=qa_feedback_section,
             base_resume=base_resume,
         )
 
         # ── Prompt trace ──────────────────────────────────────────────────────
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO pipeline_events
-                    (job_id, event_type, agent_name, model_used, detail, payload)
-                VALUES (%s, 'llm_prompt_trace', 'resume_tailor', %s, %s, %s::jsonb)
-                """,
-                (
-                    job_id,
-                    model,
-                    f"Tailoring prompt sent to LLM (iteration {iteration_number})",
-                    json.dumps({
-                        "direction": "resume_tailor→llm",
-                        "iteration": iteration_number,
-                        "prompt_length": len(prompt),
-                        "prompt": prompt,
-                    }),
-                ),
-            )
+            _write_prompt_trace(cur, job_id, model, iteration_number, prompt)
         conn.commit()
 
         tailored_resume = llm.invoke(prompt).strip()

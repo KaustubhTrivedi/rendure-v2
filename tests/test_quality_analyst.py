@@ -50,3 +50,38 @@ def test_quality_analyst_inserts_only_columns_present_in_qa_reviews_schema():
     assert "hook_score" not in cursor.sql
     assert "relevance_density" not in cursor.sql
     assert len(cursor.params) == 10
+
+
+class RecordingPromptCursor:
+    def __init__(self):
+        self.sql = ""
+        self.params = ()
+
+    def execute(self, sql, params):
+        self.sql = sql
+        self.params = params
+
+
+def test_quality_analyst_prompt_trace_payload_is_redacted():
+    cursor = RecordingPromptCursor()
+    prompt = (
+        "resume content: private resume\n"
+        "jd content: private job\n"
+        "recruiter@example.com"
+    )
+
+    quality_analyst._write_prompt_trace(cursor, "job-123", "qwen/test", 4, "version-123", prompt)
+
+    assert "llm_prompt_trace" in cursor.sql
+    payload = cursor.params[-1]
+    parsed = json.loads(payload)
+    assert parsed["direction"] == "quality_analyst_to_llm"
+    assert parsed["version_id"] == "version-123"
+    assert parsed["prompt_length"] == len(prompt)
+    assert "prompt_sha256" in parsed
+    assert parsed["redacted"] is True
+    assert "prompt" not in parsed
+    assert "private resume" not in payload
+    assert "private job" not in payload
+    assert "recruiter@example.com" not in payload
+import json
