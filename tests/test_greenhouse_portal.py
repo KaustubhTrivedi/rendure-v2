@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
+from contextlib import ExitStack, contextmanager
 from typing import Any
 from unittest.mock import Mock, patch
 
@@ -94,6 +94,7 @@ class JsonResponse:
             )
 
 
+@contextmanager
 def patch_boundaries(
     conn: RecordingConnection,
     *,
@@ -112,16 +113,27 @@ def patch_boundaries(
             ]
         }
     )
-    post_side_effect = post_side_effect or JsonResponse(
+    post_response = post_side_effect or JsonResponse(
         {"id": "cand-123", "application": {"id": "app-456"}}
     )
-    return patch.multiple(
-        "agents.greenhouse_portal",
-        _get_conn=Mock(return_value=conn),
-        render_resume_to_pdf=Mock(return_value=pdf_bytes),
-        httpx=Mock(get=Mock(return_value=get_response), post=Mock(side_effect=post_side_effect)),
-        sleep=Mock(),
-    )
+    post_mock = Mock()
+    if isinstance(post_response, list):
+        post_mock.side_effect = post_response
+    elif isinstance(post_response, BaseException):
+        post_mock.side_effect = post_response
+    else:
+        post_mock.return_value = post_response
+
+    mocks = {
+        "_get_conn": Mock(return_value=conn),
+        "render_resume_to_pdf": Mock(return_value=pdf_bytes),
+        "httpx": Mock(get=Mock(return_value=get_response), post=post_mock),
+        "sleep": Mock(),
+    }
+    with ExitStack() as stack:
+        for name, mock in mocks.items():
+            stack.enter_context(patch(f"agents.greenhouse_portal.{name}", mock))
+        yield mocks
 
 
 def status_updates(conn: RecordingConnection) -> list[str]:
@@ -167,8 +179,8 @@ def test_greenhouse_run_detects_silent_accept_failure():
         with pytest.raises(AgentError, match="silent"):
             run(JOB_ID)
 
-    assert submission_params(conn)[4] == "greenhouse"
-    assert submission_params(conn)[6] == "failed"
+    assert submission_params(conn)[3] == "greenhouse"
+    assert submission_params(conn)[5] == "failed"
     assert status_updates(conn)[-1] == "submission_failed"
 
 
