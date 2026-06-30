@@ -1,0 +1,16 @@
+stock_answers:
+  "authorized to work": "Yes"
+  "sponsorship": "No sponsorship required"
+  "salary expectations": "Negotiable based on the full compensation package"
+  "years of experience": "Please see my resume for details"
+  "remote work": "Yes, I am comfortable with remote work"
+  "start date": "I can start within two weeks of receiving an offer"
+  "willing to relocate": "Open to discussing relocation"
+  "bachelor's degree": "Yes, I hold a relevant degree"
+  "criminal background": "No"
+  "drug test": "Yes, I consent to a drug screening"
+persona_context: |
+  Answer screening questions professionally and concisely. If a question cannot be answered
+  without fabricating information (specific salary numbers, exact dates), reply with "N/A"
+  or ask the recruiter for clarification. Never fabricate credentials, employment history,
+  or certifications. Tone: confident, direct, and professional.
