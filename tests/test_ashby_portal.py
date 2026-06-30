@@ -130,7 +130,7 @@ def _queries(conn: RecordingConnection, needle: str) -> list[tuple]:
 
 def _status_updates(conn: RecordingConnection) -> list[str]:
     return [
-        params[1]
+        params[0]
         for _, sql, params in conn.executions
         if sql and sql.lower().startswith("update jobs set status") and params
     ]
@@ -204,7 +204,7 @@ def test_ashby_run_sets_status_submitting_before_post(monkeypatch, fake_conn, tm
     pdf_path.write_bytes(b"%PDF-1.7")
 
     def post_after_submitting(*args, **kwargs):
-        assert _queries(fake_conn, "UPDATE jobs SET status = 'submitting'")
+        assert "submitting" in _status_updates(fake_conn)
         return JsonResponse({"success": True, "applicationId": "ash-123"})
 
     monkeypatch.setattr("agents.ashby_portal.psycopg2.connect", Mock(return_value=fake_conn))
