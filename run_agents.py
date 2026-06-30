@@ -39,6 +39,15 @@ def main() -> None:
         default=None,
         help="Use an existing pre-created jobs.job_id row",
     )
+    parser.add_argument(
+        "--auto-apply",
+        action="store_true",
+        default=False,
+        help=(
+            "Automatically submit the tailored resume to the detected ATS portal "
+            "after QA approval. Default: OFF."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -53,6 +62,7 @@ def main() -> None:
         threshold=args.threshold,
         verbose=args.verbose,
         job_id=args.job_id,
+        auto_apply=args.auto_apply,
     )
 
 

@@ -50,6 +50,7 @@ _DEFAULT_AGENT_MODELS = {
     "resume_tailor": "google/gemini-3.1-flash-lite",
     "quality_analyst": "google/gemini-3.1-flash-lite",
     "confirmation": "google/gemini-3.1-flash-lite",
+    "portal_router": "google/gemini-3.1-flash-lite",
     "orchestrator": "google/gemini-3.1-flash-lite",
 }
 
@@ -358,6 +359,7 @@ def run(
     jd_text: str | None = None,
     job_id: str | None = None,
     profile_id: str | None = None,
+    auto_apply: bool = False,
 ) -> None:
     """
     Run the full Jobs Agency pipeline.
@@ -518,6 +520,7 @@ def run(
                 "jd_text_mode": use_jd_text,
                 "max_iterations": max_iterations,
                 "threshold": threshold,
+                "auto_apply": auto_apply,
             },
         )
 
@@ -788,6 +791,36 @@ def run(
         _export_and_build_pdf(conn, payload, event_callback)
         _notify_success(payload, event_callback)
 
+        if auto_apply:
+            _notify(
+                event_callback,
+                "  [5/5] Running Portal Router (auto-apply)...",
+                {
+                    "event_type": "status_change",
+                    "agent_name": "orchestrator",
+                    "detail": "Running Portal Router (auto-apply)...",
+                    "from_status": "approved",
+                    "to_status": "submitting",
+                },
+            )
+            from agents.portal_router import run as portal_run
+
+            try:
+                portal_result = _spawn_with_fallback(
+                    conn,
+                    job_id,
+                    "portal_router",
+                    portal_run,
+                    {"job_id": job_id},
+                    event_callback,
+                )
+                _notify_auto_apply_success(portal_result, event_callback)
+            except Exception as e:
+                _handle_agent_error(
+                    conn, job_id, "portal_router", "submitting", str(e), event_callback
+                )
+                return
+
     except KeyboardInterrupt:
         if job_id:
             _notify(
@@ -987,6 +1020,23 @@ def _notify_success(payload: dict, event_callback: EventCallback = None) -> None
         {
             "event_type": "pipeline_complete",
             "detail": f"Resume approved! Score: {payload['qa_score']:.3f}",
+        },
+    )
+
+
+def _notify_auto_apply_success(
+    result: dict, event_callback: EventCallback = None
+) -> None:
+    _notify(
+        event_callback,
+        f"\n✓ Application submitted\n"
+        f"  ATS:        {result.get('ats_type', '?')}\n"
+        f"  Outcome:    {result.get('outcome', '?')}\n"
+        f"  ATS ID:     {result.get('ats_application_id') or 'not provided'}",
+        {
+            "event_type": "application_submitted",
+            "agent_name": "portal_router",
+            "detail": f"Application submission outcome: {result.get('outcome', '?')}",
         },
     )
 
