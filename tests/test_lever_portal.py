@@ -133,6 +133,16 @@ def _queries(conn: FakeConnection, needle: str) -> list[tuple]:
     ]
 
 
+def _status_updates(conn: FakeConnection, status: str) -> list[tuple]:
+    return [
+        operation
+        for operation in conn.operations
+        if operation[0] == "db"
+        and "UPDATE jobs SET status = %s" in operation[1]
+        and operation[2][0] == status
+    ]
+
+
 def test_lever_run_posts_to_correct_url(portal_mocks):
     run("job-123")
 
@@ -194,8 +204,7 @@ def test_lever_run_sets_status_submitting_before_post(monkeypatch, fake_conn, tm
     pdf_path.write_bytes(b"%PDF-1.4")
 
     def post_after_submitting(*args, **kwargs):
-        update_queries = _queries(fake_conn, "UPDATE jobs SET status = 'submitting'")
-        assert update_queries
+        assert _status_updates(fake_conn, "submitting")
         return FakeResponse(200, {"applicationId": "lev-abc"})
 
     monkeypatch.setattr("agents.lever_portal.psycopg2.connect", Mock(return_value=fake_conn))
@@ -212,7 +221,7 @@ def test_lever_run_sets_status_submitting_before_post(monkeypatch, fake_conn, tm
 def test_lever_run_sets_status_submitted_on_success(portal_mocks, fake_conn):
     run("job-123")
 
-    assert _queries(fake_conn, "UPDATE jobs SET status = 'submitted'")
+    assert _status_updates(fake_conn, "submitted")
 
 
 def test_lever_run_sets_status_submission_failed_on_http_error(portal_mocks, fake_conn):
