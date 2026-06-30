@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v4.1
 milestone_name: Job Search Operating System v1
-current_phase: 11
-current_phase_name: Architecture, Compatibility, and Migration Plan
-status: in_progress
-stopped_at: Phase 12 context gathered
-last_updated: "2026-06-25T12:06:46.615Z"
-last_activity: 2026-06-24
-last_activity_desc: Phase 11 executed
+current_phase: 18
+current_phase_name: automatic-application-submission
+status: complete
+stopped_at: Phase 18 executed and verified
+last_updated: "2026-06-30T23:21:35Z"
+last_activity: 2026-06-30
+last_activity_desc: Phase 18 executed and verified
 progress:
-  total_phases: 7
-  completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
-  percent: 14
+  total_phases: 8
+  completed_phases: 2
+  total_plans: 6
+  completed_plans: 6
+  percent: 25
 ---
 
 # Project State
@@ -24,16 +24,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-22)
 
 **Core value:** A job seeker pastes a URL and gets back a tailored, high-quality resume without touching a single line of their resume themselves.
-**Current focus:** Milestone v4.1 - Job Search Operating System v1
+**Current focus:** Phase 18 — automatic-application-submission
 
 ## Current Position
 
-Phase: 11 of 17 (Architecture, Compatibility, and Migration Plan), first of 7 v4.1 phases
-Plan: 4 plans complete
-Status: Phase 11 executed
-Last activity: 2026-06-24 - Phase 11 executed
+Phase: 18 (automatic-application-submission) — COMPLETE
+Plan: 6 of 6
+Status: Verified complete
+Last activity: 2026-06-30 — Phase 18 executed and verified
 
-Progress: [#---------] 14%
+Progress: [##########] 100%
 
 ## Performance Metrics
 
@@ -46,6 +46,7 @@ Progress: [#---------] 14%
 | 15 | 0/? | Not started |
 | 16 | 0/? | Not started |
 | 17 | 0/? | Not started |
+| 18 | 6/6 | Complete |
 
 ## Accumulated Context
 
@@ -57,6 +58,11 @@ Progress: [#---------] 14%
 - 2026-06-23: Trusted Vault evidence requires explicit user approval; AI can create candidates, rank evidence, and draft text only from user-provided sources.
 - 2026-06-23: Application status, application timeline, recruiter reminders, and match assessments are separate from pipeline `jobs.status`, `pipeline_events`, and QA score semantics.
 
+### Roadmap Evolution
+
+- Phase 18 added: Automatic Application Submission (Greenhouse, Lever, Ashby portal agents)
+- Phase 18 executed: ATS detection, submission schema, screening answer engine, resume rendering, Greenhouse/Lever/Ashby portal agents, portal router, and `--auto-apply` opt-in wiring.
+
 ### Pending Todos
 
 - Legacy Clerk-based tests and DB migrations from v2.0 should be cleaned up when relevant; not a blocker for v4.1 roadmap planning.
@@ -67,7 +73,7 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-06-25T12:06:46.604Z
-Stopped at: Phase 12 context gathered
-Resume file: .planning/phases/12-career-vault-schema-and-api-foundation/12-CONTEXT.md
-Next action: `$gsd-phase 12`
+Last session: 2026-06-30T23:21:35Z
+Stopped at: Phase 18 executed and verified
+Resume file: .planning/phases/18-automatic-application-submission/18-CONTEXT.md
+Next action: review/ship Phase 18 or return to the v4.1 roadmap sequence at Phase 12.

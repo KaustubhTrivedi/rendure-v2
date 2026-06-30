@@ -24,6 +24,7 @@ v4.1 turns Rendure from a URL-to-tailored-resume workflow into an evidence-backe
 - [ ] **Phase 15: Missing Achievement Discovery** - Surface source-backed missing evidence candidates with add/use/reject actions.
 - [ ] **Phase 16: Recruiter CRM Lite and Reminders** - Add reusable contacts, follow-up reminders, and grounded copy-only follow-up drafts.
 - [ ] **Phase 17: Explainable Job-Match Score** - Add coarse, evidence-linked match assessments with limitations, confidence, and practical next actions.
+- [x] **Phase 18: Automatic Application Submission** - Add explicit opt-in ATS submission through Greenhouse, Lever, and Ashby portal agents.
 
 ## Phase Details
 
@@ -170,6 +171,7 @@ Phases execute in roadmap order: 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17.
 | 15. Missing Achievement Discovery | 0/? | Not started | - |
 | 16. Recruiter CRM Lite and Reminders | 0/? | Not started | - |
 | 17. Explainable Job-Match Score | 0/? | Not started | - |
+| 18. Automatic Application Submission | 6/6 | Complete | 2026-06-30 |
 
 ### Phase 18: Automatic Application Submission
 
@@ -179,10 +181,17 @@ Phases execute in roadmap order: 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17.
 **Plans:** 6 plans
 
 Plans:
+**Wave 1**
 
-- [ ] 18-01-PLAN.md — DB migration 010 (application_submissions table, ATS columns, new transitions) + detect_ats() utility
-- [ ] 18-02-PLAN.md — AnswerEngine (stock answers + LLM fallback) + render_resume_to_pdf() utility + answers.yaml template
-- [ ] 18-03-PLAN.md — Greenhouse Board API portal agent (TDD, silent-accept detection)
-- [ ] 18-04-PLAN.md — Lever Postings API portal agent (TDD, 429 retry with Retry-After)
-- [ ] 18-05-PLAN.md — Ashby applicationForm.submit portal agent (TDD, HTTP 200 != success)
-- [ ] 18-06-PLAN.md — Portal router + orchestrator wiring + --auto-apply CLI flag
+- [x] 18-01-PLAN.md — DB migration 010 (application_submissions table, ATS columns, new transitions) + detect_ats() utility
+- [x] 18-02-PLAN.md — AnswerEngine (stock answers + LLM fallback) + render_resume_to_pdf() utility + answers.yaml template
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 18-03-PLAN.md — Greenhouse Board API portal agent (TDD, silent-accept detection)
+- [x] 18-04-PLAN.md — Lever Postings API portal agent (TDD, 429 retry with Retry-After)
+- [x] 18-05-PLAN.md — Ashby applicationForm.submit portal agent (TDD, HTTP 200 != success)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 18-06-PLAN.md — Portal router + orchestrator wiring + --auto-apply CLI flag
