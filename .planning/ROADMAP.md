@@ -170,3 +170,19 @@ Phases execute in roadmap order: 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17.
 | 15. Missing Achievement Discovery | 0/? | Not started | - |
 | 16. Recruiter CRM Lite and Reminders | 0/? | Not started | - |
 | 17. Explainable Job-Match Score | 0/? | Not started | - |
+
+### Phase 18: Automatic Application Submission
+
+**Goal:** After QA approval, automatically submit the tailored resume to the job's ATS portal (Greenhouse, Lever, Ashby) using their public APIs when the user passes --auto-apply. Submission is opt-in per job; the system never submits without explicit user request.
+**Requirements**: ATS-DETECT-01, DB-SCHEMA-01, ANSWER-ENGINE-01, RESUME-RENDER-01, GREENHOUSE-01, LEVER-01, ASHBY-01, PORTAL-ROUTER-01, ORCHESTRATOR-WIRING-01
+**Depends on:** Phase 17
+**Plans:** 6 plans
+
+Plans:
+
+- [ ] 18-01-PLAN.md — DB migration 010 (application_submissions table, ATS columns, new transitions) + detect_ats() utility
+- [ ] 18-02-PLAN.md — AnswerEngine (stock answers + LLM fallback) + render_resume_to_pdf() utility + answers.yaml template
+- [ ] 18-03-PLAN.md — Greenhouse Board API portal agent (TDD, silent-accept detection)
+- [ ] 18-04-PLAN.md — Lever Postings API portal agent (TDD, 429 retry with Retry-After)
+- [ ] 18-05-PLAN.md — Ashby applicationForm.submit portal agent (TDD, HTTP 200 != success)
+- [ ] 18-06-PLAN.md — Portal router + orchestrator wiring + --auto-apply CLI flag
