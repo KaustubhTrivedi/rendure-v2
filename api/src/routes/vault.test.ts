@@ -214,6 +214,13 @@ describe('PATCH /vault/profile', () => {
     expect(query.mock.calls[0][0]).toContain('ON CONFLICT')
     expect(query.mock.calls[0][0]).toContain('COALESCE')
   })
+
+  it('returns 422 for unknown keys', async () => {
+    const res = await app.fetch(
+      makeReq('PATCH', '/vault/profile', { approval_state: 'approved' }),
+    )
+    expect(res.status).toBe(422)
+  })
 })
 
 for (const entity of ENTITY_CASES) {
