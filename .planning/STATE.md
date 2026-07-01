@@ -5,9 +5,9 @@ milestone_name: Job Search Operating System v1
 current_phase: 18
 current_phase_name: automatic-application-submission
 status: complete
-stopped_at: Phase 18 executed and verified
-last_updated: "2026-06-30T23:21:35Z"
-last_activity: 2026-06-30
+stopped_at: Phase 18 shipped — PR #13
+last_updated: "2026-07-01T00:00:00Z"
+last_activity: 2026-07-01
 last_activity_desc: Phase 18 executed and verified
 progress:
   total_phases: 8
