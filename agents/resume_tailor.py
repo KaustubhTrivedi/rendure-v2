@@ -17,6 +17,7 @@ from typing import Any, Callable
 import psycopg2
 from dotenv import load_dotenv
 
+from utils.audit_redaction import build_redacted_prompt_payload
 from utils.llm import load_llm
 from utils.toon import toon_list, toon_table
 
@@ -30,12 +31,17 @@ HARD_CONSTRAINTS_PATH = PROJECT_ROOT / "profile" / "hard_constraints.md"
 
 
 TAILORING_PROMPT = """\
-You are a professional resume writer. Rewrite the resume below to be a strong, \
-targeted match for the job description provided.
+You are an expert resume optimization system. Rewrite the resume below into a highly \
+skimmable, recruiter-friendly, ATS-optimized RenderCV YAML resume that is a strong, \
+targeted match for the job description provided. Recruiters spend 3-5 seconds on the \
+first scan — the output must immediately communicate role identity, core technologies, \
+and impact/capability level.
 
 Before doing anything else, read and internalize the HARD CONSTRAINTS section below. \
 These are non-negotiable rules about what you are and are not permitted to claim on \
-behalf of this candidate. Violating any constraint is a critical error.
+behalf of this candidate. Violating any constraint is a critical error. The HARD \
+CONSTRAINTS override every other rule in this prompt, including all keyword coverage \
+and keyword bridging guidance.
 
 === HARD CONSTRAINTS (read first — non-negotiable) ===
 {hard_constraints}
@@ -58,41 +64,81 @@ Seniority: {seniority_level}
 === BASE RESUME (RenderCV YAML) ===
 {base_resume}
 
+=== INTERNAL ANALYSIS (reason through these silently — do NOT output them) ===
+A. HIRING INTENT: Infer the core problem this role solves, what success looks like in \
+6 months, and the top 3 must-have signals the recruiter scans for. Let this drive the \
+summary, the skills order, and bullet prioritisation.
+B. COMPANY CONTEXT: Infer company type/stage and engineering environment from the JD \
+(startup -> ownership, speed, ambiguity; enterprise/platform -> reliability, scale, \
+collaboration; product -> user impact, cross-functional work; infra -> systems, \
+performance, uptime). Mirror the company's exact terminology where it is grounded in \
+the candidate's real background (e.g. prefer "backend services" over "server-side \
+systems" when the JD uses it). Do NOT invent product facts or force mission language.
+C. POSITIONING: Choose a target role title, a seniority signal, a primary strength \
+axis, and one narrative angle. Everything below must reinforce this positioning.
+D. CAPABILITY MAPPING: From the base resume and hard constraints, list the candidate's \
+verified languages, frameworks, backend/infra tools, domains, and achievements. Map \
+every JD requirement to a strong match, a partial match, or a genuine gap.
+
 === TAILORING RULES ===
 1. HARD CONSTRAINTS FIRST: Every output must comply with the HARD CONSTRAINTS section above. \
-If a required skill or experience from the JD is not verifiably present in the hard constraints, \
-omit it entirely — do NOT invent or stretch context to include it.
+If a required skill or experience from the JD is not verifiably present in the hard constraints \
+or the base resume, omit it entirely — do NOT invent, stretch, or fabricate context to include \
+it. Never alter metrics, dates, employers, titles, or contact information.
 
 2. KEYWORD COVERAGE: Include every required skill that genuinely appears in the candidate's \
-verified background (per the HARD CONSTRAINTS). Use the exact phrasing from the JD.
+verified background (per the HARD CONSTRAINTS). Use the exact phrasing from the JD. Weave \
+keywords naturally into the summary, skills, and grounded experience bullets — never keyword-stuff.
 
-3. EXPERIENCE BULLETS: Rewrite highlights to emphasise relevance to this role. \
-Lead with impact and scope. Use active verbs. Limit to 5-6 highlights per role. \
-Prioritise highlights demonstrating required skills.
+3. SUMMARY (profile, if present): The first two lines must answer "Why should this candidate be \
+interviewed?" Include role identity, seniority level, 2-3 core technologies, and one impact theme \
+aligned with the inferred hiring intent. Address this company and role directly. Keep to 2-3 \
+sentences. Open with a title or action noun, never "I am", "Motivated", or "Passionate". Do not \
+invent traits not evidenced in the CV.
 
-4. SENIORITY ALIGNMENT ({seniority_level}):
+4. EXPERIENCE BULLETS: Every bullet must follow TECH + ACTION + IMPACT and contain at least one \
+technical keyword and one outcome. Lead with strong verbs (built, designed, implemented, optimized, \
+deployed); never "worked on" or "involved in". Place key technologies early. Keep each bullet to \
+1-2 lines. Use existing metrics verbatim; where none exist, express impact via scale, efficiency, \
+frequency, or system usage — never fabricate a number. Within each role, order bullets by must-have \
+signal first, then measurable impact, then technical depth. Prune low-signal or redundant bullets; \
+keep 4-5 per role maximum. Every bullet must originate from the base resume content — never \
+introduce a new technology, project, or responsibility in an experience bullet.
+
+5. SENIORITY ALIGNMENT ({seniority_level}):
    - junior: learning velocity, contribution, foundational skills
    - mid: ownership of features, independent delivery, cross-team collaboration
    - senior: system design, technical leadership, mentoring, measurable impact
    - lead/staff: strategic direction, architectural decisions, org influence
 
-5. SKILLS SECTION: Order required skills first, nice-to-haves second. \
-Remove skills entirely unrelated to this role. \
+6. SKILLS SECTION: Group skills into clear categories (e.g. Programming Languages; Backend / \
+Frameworks; Infrastructure & DevOps; Tools). Order groups and items within each group by relevance \
+to this role — required skills first, nice-to-haves second, unrelated skills removed. Use consistent \
+naming (e.g. PostgreSQL, not mixed variants). \
 Never add a skill listed under [DO NOT CLAIM] in the hard constraints.
 
-6. PROFILE (if present): Rewrite to address this role directly. Mention company \
-and role title. Keep to 2-3 sentences. Do not invent traits not evidenced in the CV.
+7. GROUNDED KEYWORD BRIDGING (subordinate to Rule 1): You MAY add a single "Familiar With" skills \
+group ONLY for technologies the candidate has genuine adjacent exposure to that is supported by the \
+base resume or hard constraints (e.g. "Familiar with Apache Airflow" when the resume shows \
+cron-based pipeline work). This group is the ONLY place a not-yet-primary technology may appear. \
+NEVER bridge a skill listed under [DO NOT CLAIM]. NEVER bridge a technology with no adjacent \
+evidence. NEVER move a bridged skill into the summary or an experience bullet. When in doubt, omit \
+— the hard constraints always win over ATS keyword coverage.
 
-7. DO NOT CHANGE: cv.name, cv.email, cv.phone, cv.location, cv.website, \
+8. DO NOT CHANGE: cv.name, cv.email, cv.phone, cv.location, cv.website, \
 cv.social_networks, education entries, employment dates, or the top-level YAML structure. \
 The design block MUST remain a top-level key (sibling of cv:, NOT nested inside cv:). \
 The output must start with "cv:" and end with "design:" at the root level, like this: \
 cv:\n  ...\ndesign:\n  theme: sb2nov
 
-Return ONLY the complete rewritten resume in RenderCV YAML format. No explanations, \
-no preamble, no yaml fences — just the raw YAML content starting with "cv:". \
-Preserve the exact YAML structure. Do not add or remove top-level keys. \
-All date fields must remain quoted strings (e.g. "2022-11"). Keep the design: block unchanged.
+=== FINAL RECRUITER SCAN CHECK (before output) ===
+Confirm that within 3 seconds a recruiter can identify the candidate's role identity, top \
+technologies, and strongest impact area. If not, tighten the summary and the first role's bullets.
+
+Return ONLY the complete rewritten resume in RenderCV YAML format. No explanations, no preamble, \
+no analysis, no yaml fences — just the raw YAML content starting with "cv:". Preserve the exact \
+YAML structure. Do not add or remove top-level keys. All date fields must remain quoted strings \
+(e.g. "2022-11"). Keep the design: block unchanged.
 """
 
 QA_FEEDBACK_SECTION = """\
@@ -129,6 +175,36 @@ def _load_base_resume_from_profile(conn: Any) -> str:
             "No resume found in user profile. Upload a resume via the Settings page first."
         )
     return row[0].strip()
+
+
+def _load_approved_evidence(conn: Any, job_id: str) -> list[str]:
+    """Load optional approved evidence for future Vault-assisted tailoring.
+
+    Phase 11 keeps the current URL-to-tailored-resume path working when no Vault
+    evidence exists, so the default implementation is an empty list.
+    """
+    _ = (conn, job_id)
+    return []
+
+
+def _write_prompt_trace(cur: Any, job_id: str, model: str, iteration_number: int, prompt: str) -> None:
+    cur.execute(
+        """
+        INSERT INTO pipeline_events
+            (job_id, event_type, agent_name, model_used, detail, payload)
+        VALUES (%s, 'llm_prompt_trace', 'resume_tailor', %s, %s, %s::jsonb)
+        """,
+        (
+            job_id,
+            model,
+            f"Tailoring prompt sent to LLM (iteration {iteration_number})",
+            json.dumps(build_redacted_prompt_payload(
+                "resume_tailor_to_llm",
+                prompt,
+                iteration=iteration_number,
+            )),
+        ),
+    )
 
 
 def _load_hard_constraints() -> str:
@@ -288,6 +364,8 @@ def run(
                 raise AgentError(f"No previous resume version found in DB for job {job_id}")
             base_resume = prev[0]
 
+        approved_evidence = _load_approved_evidence(conn, job_id)
+
         # ── Step 4: Rewrite via LLM ───────────────────────────────────────────
         _notify(event_callback, "    Loading hard constraints...", None)
         hard_constraints = _load_hard_constraints()
@@ -305,30 +383,14 @@ def run(
             jd_text=jd_text[:8000],
             required_skills=toon_list("required_skills", required_skills),
             nice_to_haves=toon_list("nice_to_haves", nice_to_haves) if nice_to_haves else "(none)",
+            approved_evidence=toon_list("approved_evidence", approved_evidence) if approved_evidence else "(none)",
             qa_feedback_section=qa_feedback_section,
             base_resume=base_resume,
         )
 
         # ── Prompt trace ──────────────────────────────────────────────────────
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO pipeline_events
-                    (job_id, event_type, agent_name, model_used, detail, payload)
-                VALUES (%s, 'llm_prompt_trace', 'resume_tailor', %s, %s, %s::jsonb)
-                """,
-                (
-                    job_id,
-                    model,
-                    f"Tailoring prompt sent to LLM (iteration {iteration_number})",
-                    json.dumps({
-                        "direction": "resume_tailor→llm",
-                        "iteration": iteration_number,
-                        "prompt_length": len(prompt),
-                        "prompt": prompt,
-                    }),
-                ),
-            )
+            _write_prompt_trace(cur, job_id, model, iteration_number, prompt)
         conn.commit()
 
         tailored_resume = llm.invoke(prompt).strip()

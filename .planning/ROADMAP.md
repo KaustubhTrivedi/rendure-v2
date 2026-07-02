@@ -1,235 +1,197 @@
-# Roadmap: Rendure — v3.0 Complete Backend
+# Roadmap: Rendure - v4.1 Job Search Operating System v1
 
-## Milestones
+## Historical Context
 
-- [x] **v1.0** — Phases 1-5 (superseded 2026-04-13 — codebase stripped, see `.planning/phases/_archive-v1.0/`)
-- [x] **v2.0 Rendure Platform Rebuild** — superseded 2026-05-13 — architecture reconsidered, see `.planning/phases/_archive-v2.0/`
-- [x] **v3.0 Complete Backend** — Phases 1-4 (complete)
-- [ ] **v4.0 Config-driven Multi-target Deployment** — Phases 5-10 (in progress)
+This active roadmap covers v4.1 only. Prior milestone history is preserved in `.planning/MILESTONES.md`.
 
----
+Previous roadmap phase numbering reached Phase 10b. v4.1 continues with the next clear sequence: Phases 11-17.
 
-## v3.0 Complete Backend
+## Overview
 
-The existing Hono/TypeScript backend (`api/`) already handles job submission, listing, detail, status polling, and basic profile management. This milestone completes the backend so it is the single access point for both a web frontend and a Telegram bot: it adds API key protection, full profile updates, SSE pipeline progress, resume retrieval (Markdown + PDF), and Telegram bot integration. Four sequential phases — each delivers a self-contained slice of backend functionality.
+v4.1 turns Rendure from a URL-to-tailored-resume workflow into an evidence-backed job-search operating system. The milestone adds Career Vault, evidence import/review, Vault-assisted tailoring, application tracking, missing-achievement discovery, recruiter reminders, and explainable job-match scoring while preserving the existing tailoring pipeline and its compatibility contracts.
 
 ## Phases
 
 **Phase Numbering:**
-- Integer phases (1, 2, 3, 4): Planned milestone work
-- Decimal phases (e.g., 2.1): Urgent insertions via `/gsd-insert-phase`
 
-- [x] **Phase 1: Auth & Profile Completion** — API key middleware, PATCH /profile, error/logging conventions
-- [x] **Phase 2: SSE Pipeline Progress** — Real-time GET /jobs/:id/events with replay, keepalive, terminal-state close
-- [x] **Phase 3: Resume Retrieval & PDF** — Markdown endpoints, RenderCV PDF rendering with disk cache
-- [x] **Phase 4: Telegram Bot Integration** — Webhook receiver, signed-update verification, terminal-state notifications
+- Integer phases (11, 12, 13): Planned v4.1 milestone work
+- Decimal phases (13.1, 13.2): Urgent insertions via `$gsd-phase --insert`
+
+- [x] **Phase 11: Architecture, Compatibility, and Migration Plan** - Lock compatibility, migration, privacy, and guardrail-test boundaries before adding new domains.
+- [x] **Phase 12: Career Vault Schema and API Foundation** - Establish approved Career Vault records, source artifacts, provenance, and approval-gated trusted writes. (completed 2026-07-02)
+- [ ] **Phase 13: Vault Import/Review UI and Tailoring Integration** - Let users approve imported evidence and let tailoring use only approved evidence with a resume-version ledger.
+- [ ] **Phase 14: Application Tracker MVP** - Add user-controlled application records, workflow states, documents, timelines, board movement, and stale/follow-up indicators.
+- [ ] **Phase 15: Missing Achievement Discovery** - Surface source-backed missing evidence candidates with add/use/reject actions.
+- [ ] **Phase 16: Recruiter CRM Lite and Reminders** - Add reusable contacts, follow-up reminders, and grounded copy-only follow-up drafts.
+- [ ] **Phase 17: Explainable Job-Match Score** - Add coarse, evidence-linked match assessments with limitations, confidence, and practical next actions.
+- [x] **Phase 18: Automatic Application Submission** - Add explicit opt-in ATS submission through Greenhouse, Lever, and Ashby portal agents.
 
 ## Phase Details
 
-### Phase 1: Auth & Profile Completion
-**Goal**: Every authenticated route is protected by a single API key, the profile route exposes full update capability, and all routes share consistent error/logging conventions — a solid foundation for the remaining backend work.
-**Depends on**: Nothing (first phase)
-**Requirements**: AUTH-01, AUTH-02, AUTH-03, PROFILE-01, PROFILE-02, PROFILE-03, PROFILE-04, OPS-01, OPS-02, OPS-03
+### Phase 11: Architecture, Compatibility, and Migration Plan
+
+**Goal**: Existing users can keep using the URL-to-tailored-resume flow unchanged while v4.1 compatibility, migration, logging, and safety-test boundaries are established.
+**Depends on**: Previous milestone baseline through Phase 10b sequence
+**Requirements**: COMPAT-01, COMPAT-02, COMPAT-03, COMPAT-04, COMPAT-05, COMPAT-06, GUARD-06
 **Success Criteria** (what must be TRUE):
-  1. A request to any `/jobs` or `/profile` route without a valid `X-API-Key` header returns 401 with an RFC7807-style problem JSON
-  2. A request with the correct `X-API-Key` passes through; `GET /` always works without a key
-  3. `PATCH /profile` updates any combination of identity, pipeline default, and notification fields, validates input, and rejects unknown seniority/negative iterations with field-level errors
-  4. Every request produces a structured log line including method, path, status, duration, and (when relevant) job_id
-  5. Missing `RENDURE_API_KEY` env var fails server startup with a clear, actionable error
+
+  1. User can submit a job URL with no Vault setup and still complete Job Scout -> Resume Tailor -> Quality Analyst -> Confirmation.
+  2. Existing API, SSE, resume Markdown, PDF, job detail, status, and QA report clients receive backward-compatible responses.
+  3. New migrations are additive, leave `jobs.qa_score` and `jobs.iteration_count` trigger-owned, and keep application workflow status out of `jobs.status`.
+  4. Pipeline audit events remain pipeline-only while private Vault, recruiter, and prompt content is redacted from logs unless required for a user-visible artifact.
+  5. Automated guardrail tests cover no-Vault tailoring fallback, approval-gated evidence writes, source-required missing evidence, application status separation, no auto-apply, and no automatic email sending.
+
 **Plans**: 4 plans
-Plans:
-- [x] 01-01-PLAN.md — Deps (zod, pino, pino-pretty) + DB migration + httpError helper + JSON healthcheck
-- [x] 01-02-PLAN.md — pino logger middleware mounted globally
-- [x] 01-03-PLAN.md — API key middleware (timing-safe) + startup gate
-- [x] 01-04-PLAN.md — PATCH /profile with Zod + httpError migration of existing routes
-**UI hint**: no
 
-### Phase 2: SSE Pipeline Progress
-**Goal**: A client can connect to `GET /jobs/:id/events`, immediately receive all pipeline events that have already occurred for that job, and continue receiving new events live until the job reaches a terminal status — providing the real-time channel the frontend and bot both need.
-**Depends on**: Phase 1 (uses API key middleware)
-**Requirements**: SSE-01, SSE-02, SSE-03, SSE-04, SSE-05
+Plans:
+
+- [ ] 11-01-PLAN.md - Existing URL/job API/SSE/resume/PDF/QA compatibility contract tests
+- [ ] 11-02-PLAN.md - Additive migration, application status separation, and timeline audit boundaries
+- [ ] 11-03-PLAN.md - Python pipeline prompt/audit redaction implementation and tests
+- [ ] 11-04-PLAN.md - Evidence/source/no-send/no-auto-apply guardrail tests
+
+### Phase 12: Career Vault Schema and API Foundation
+
+**Goal**: User has an approved Career Vault data foundation where source artifacts, profile preferences, roles, projects, achievements, skills, certifications, STAR stories, and provenance can be managed without allowing AI to create trusted evidence directly.
+**Depends on**: Phase 11
+**Requirements**: VAULT-01, VAULT-02, VAULT-03, VAULT-04, VAULT-05, VAULT-06, VAULT-07, VAULT-08, VAULT-09, GUARD-01, GUARD-02
 **Success Criteria** (what must be TRUE):
-  1. Connecting to `GET /jobs/:id/events` mid-pipeline immediately replays all prior `pipeline_events` rows for the job, then streams new events as they are written
-  2. The stream emits a keepalive comment at a fixed interval so HTTP proxies do not close the connection
-  3. When the job transitions to `approved`, `low_match`, or `error`, the server emits a final event and closes the connection cleanly
-  4. Requesting events for a non-existent job returns 404; requesting without `X-API-Key` returns 401
-  5. Disconnect/reconnect by the client does not duplicate events the client has already seen (replay logic is idempotent on client side via event IDs)
-**Plans**: 3 plans
-Plans:
-- [ ] 02-01-PLAN.md — Durable SSE replay route, payload helpers, auth/404/cursor behavior
-- [ ] 02-02-PLAN.md — PostgreSQL pipeline_events notify trigger and listener helper
-- [ ] 02-03-PLAN.md — Live LISTEN/NOTIFY streaming, keepalive, terminal close, full verification
-**UI hint**: no
 
-### Phase 3: Resume Retrieval & PDF
-**Goal**: A client can list the resume versions for any job, fetch the tailored Markdown of any version, and download a PDF rendered by RenderCV — with PDF rendering cached on disk so repeat downloads are instant.
-**Depends on**: Phase 1
-**Requirements**: RESUME-01, RESUME-02, RESUME-03, RESUME-04, RESUME-05
+  1. User can store career source artifacts with source type, source reference, extracted timestamp, approval state, and last user edit timestamp.
+  2. User can maintain profile preferences plus approved roles, projects, achievements, normalized skills, certifications, and STAR stories with their required fields.
+  3. Every approved Vault record preserves provenance to user-provided source artifacts or manual-entry metadata.
+  4. AI extraction paths can create only untrusted candidates; trusted Career Vault records require an explicit user-initiated approval or manual-write path.
+  5. Trusted Vault writes reject unsupported employers, roles, skills, projects, metrics, achievements, certifications, and interview stories rather than storing fabricated claims.
+
+**Plans**: 2/2 plans complete
+
+### Phase 13: Vault Import/Review UI and Tailoring Integration
+
+**Goal**: User can import resume evidence, explicitly approve trusted Vault records, and generate tailored resumes that optionally use approved Vault evidence while recording exactly which evidence was used.
+**Depends on**: Phase 12
+**Requirements**: REVIEW-01, REVIEW-02, REVIEW-03, REVIEW-04, REVIEW-05, REVIEW-06, REVIEW-07, REVIEW-08, EVID-01, EVID-02, EVID-03, EVID-04, EVID-05, EVID-06, GUARD-03
 **Success Criteria** (what must be TRUE):
-  1. `GET /jobs/:id/resumes` returns the full list of `resume_versions` rows for the job (version_id, version_number, created_at, tailoring_notes)
-  2. `GET /jobs/:id/resume/:version_id` returns the tailored Markdown for the given version with `Content-Type: text/markdown`
-  3. `GET /jobs/:id/resume/:version_id/pdf` returns a rendered PDF (RenderCV via host CLI) with `Content-Type: application/pdf`
-  4. Repeated PDF requests for the same `version_id` are served from disk cache without re-running RenderCV
-  5. Unknown job or version IDs return 404 with a problem JSON
-**Plans**: 3 plans
-Plans:
-- [x] 03-01-PLAN.md — Resume version list and Markdown retrieval routes with auth inheritance and uniform 404s
-- [x] 03-02-PLAN.md — RenderCV host-CLI render/cache helper with contract validation, timeout, concurrency cap, and dedupe
-- [x] 03-03-PLAN.md — PDF endpoint integration, startup RenderCV probe, cache ignore, and host-CLI docs
-**UI hint**: no
 
-### Phase 4: Telegram Bot Integration
-**Goal**: The backend can receive job submissions from a Telegram bot (via webhook) and send pipeline result notifications back to the user's Telegram chat when a job reaches a terminal state — completing the second client surface.
-**Depends on**: Phase 1, Phase 3 (needs resume endpoints for the result links)
-**Requirements**: TELEGRAM-01, TELEGRAM-02, TELEGRAM-03, TELEGRAM-04, TELEGRAM-05
+  1. User can upload or select at least two resumes and review extracted untrusted candidates grouped for likely duplicates.
+  2. User can edit, approve, merge, or reject candidates, with source provenance visible before approval or use.
+  3. User can browse, search, manually create, and edit Vault records without running an import.
+  4. URL-to-resume tailoring retrieves ranked approved evidence when available, uses no pending or rejected candidates, and still works when the Vault is empty or unavailable.
+  5. Every generated resume version records validated used evidence IDs, and user can view which approved Vault evidence was used by that version.
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 14: Application Tracker MVP
+
+**Goal**: User can manage applications as a separate workflow from pipeline jobs, with durable status, documents, notes, JD snapshots, contacts, timeline events, and follow-up signals.
+**Depends on**: Phase 13
+**Requirements**: APP-01, APP-02, APP-03, APP-04, APP-05, APP-06, APP-07, APP-08, APP-09, APP-10, GUARD-04
 **Success Criteria** (what must be TRUE):
-  1. `POST /telegram/webhook` accepts a Telegram update containing a URL, validates the `secret_token` header, and creates a new job
-  2. Telegram updates missing or carrying an invalid `secret_token` are rejected with 401 (no job created)
-  3. When any job reaches `approved`, `low_match`, or `error`, the backend sends a Telegram message to `user_profile.notify_telegram_chat_id` with status, QA score, and a way to retrieve the resume
-  4. Setting `notify_telegram_chat_id = null` via `PATCH /profile` stops notifications from being sent
-  5. Server starts and serves all non-Telegram routes normally when `TELEGRAM_BOT_TOKEN` is unset; Telegram routes return a clear "not configured" error
-**Plans**: 4 plans
-Plans:
-- [x] 04-01-PLAN.md — Shared job submission helper for `/jobs` and Telegram URL intake
-- [x] 04-02-PLAN.md — Telegram message formatting, Markdown escaping, and Bot API send client
-- [x] 04-03-PLAN.md — `/telegram/webhook` secret-authenticated URL submission route
-- [x] 04-04-PLAN.md — Terminal pipeline event Telegram notifications and startup wiring
-**UI hint**: no
 
----
+  1. User can create an application manually, from a pasted job URL with immutable JD snapshot, or from an existing tailoring result in one or two actions.
+  2. User can move applications across exactly saved, applied, interviewing, offer, rejected, and archived states on a Kanban or equivalent board without mutating pipeline `jobs.status`.
+  3. User can attach generated resume versions and future cover-letter documents, then update notes, recruiter/contact details, and next follow-up dates.
+  4. User can view an application detail page with JD snapshot, documents, notes, timeline, linked contacts, and linked Vault evidence; significant actions create timeline entries.
+  5. Stale applications and overdue follow-up indicators are visible, and Rendure has no application-submission or browser-automation path.
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 15: Missing Achievement Discovery
+
+**Goal**: User can find source-backed evidence missing from an active resume and choose whether to add, use, or permanently reject each candidate without accepting AI-created claims.
+**Depends on**: Phase 13
+**Requirements**: DISC-01, DISC-02, DISC-03, DISC-04, DISC-05, DISC-06, DISC-07
+**Success Criteria** (what must be TRUE):
+
+  1. User can compare an active resume with approved user sources and view absent achievement, project, skill, or quantified-evidence candidates with precise source attribution.
+  2. Missing-evidence candidates are grouped for likely duplicates and clearly labeled as evidence candidates, not AI-created claims.
+  3. User can add a missing-evidence candidate to the Vault or use it in the active tailored resume only through an approved Vault evidence path.
+  4. User can permanently reject a missing-evidence candidate so it does not repeatedly resurface.
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 16: Recruiter CRM Lite and Reminders
+
+**Goal**: User can track recruiter/contact relationships, manage follow-up reminders, and generate grounded copy-only follow-up drafts without Rendure sending email.
+**Depends on**: Phase 14
+**Requirements**: CRM-01, CRM-02, CRM-03, CRM-04, CRM-05, CRM-06, GUARD-05
+**Success Criteria** (what must be TRUE):
+
+  1. User can store recruiter/contact name, company, email, LinkedIn URL, last contact date, next follow-up date, and notes.
+  2. User can link one contact to multiple applications and one application to multiple contacts.
+  3. User can view a reminder queue for overdue and upcoming follow-ups, then snooze, dismiss, or complete a reminder.
+  4. User can generate a concise follow-up draft grounded only in role, company, application status, known contact details, timeline events, and user notes; Rendure never sends email automatically.
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 17: Explainable Job-Match Score
+
+**Goal**: User can generate an auditable, coarse job-match assessment that explains fit with evidence links, hard constraints, confidence, top actions, and explicit limitations.
+**Depends on**: Phase 13
+**Requirements**: SCORE-01, SCORE-02, SCORE-03, SCORE-04, SCORE-05, SCORE-06, SCORE-07
+**Success Criteria** (what must be TRUE):
+
+  1. User can generate a job-match assessment that uses coarse fit buckets instead of false-precision ATS-style scoring.
+  2. User can view dimension breakdowns for skills/responsibilities, seniority/scope, domain/stack, location/remote/visa/relocation constraints, and optional compensation when configured.
+  3. Each match dimension shows supporting job-description evidence and Vault or resume evidence where available, and distinguishes missing evidence, missing demonstrated capability, hard logistical constraints, and low-confidence assessments.
+  4. User receives the top three practical actions to improve or skip the application plus limitation copy that this is not an ATS score, recruiter-interest prediction, or interview-outcome prediction.
+  5. Match assessments persist inputs, config version, dimension outputs, evidence links, confidence, and hard caps for auditability.
+
+**Plans**: TBD
+**UI hint**: yes
 
 ## Traceability
 
-| REQ-ID | Phase |
-|--------|-------|
-| AUTH-01, AUTH-02, AUTH-03 | Phase 1 |
-| PROFILE-01, PROFILE-02, PROFILE-03, PROFILE-04 | Phase 1 |
-| OPS-01, OPS-02, OPS-03 | Phase 1 |
-| SSE-01, SSE-02, SSE-03, SSE-04, SSE-05 | Phase 2 |
-| RESUME-01, RESUME-02, RESUME-03, RESUME-04, RESUME-05 | Phase 3 |
-| TELEGRAM-01, TELEGRAM-02, TELEGRAM-03, TELEGRAM-04, TELEGRAM-05 | Phase 4 |
+| Requirement Group | Phase |
+|-------------------|-------|
+| COMPAT-01 through COMPAT-06, GUARD-06 | Phase 11 |
+| VAULT-01 through VAULT-09, GUARD-01, GUARD-02 | Phase 12 |
+| REVIEW-01 through REVIEW-08, EVID-01 through EVID-06, GUARD-03 | Phase 13 |
+| APP-01 through APP-10, GUARD-04 | Phase 14 |
+| DISC-01 through DISC-07 | Phase 15 |
+| CRM-01 through CRM-06, GUARD-05 | Phase 16 |
+| SCORE-01 through SCORE-07 | Phase 17 |
 
-**Coverage:** 22/22 requirements mapped — 100% ✓
+**Coverage:** 65/65 v4.1 requirements mapped - 100%
 
----
+## Progress
 
-## v4.0 Config-driven Multi-target Deployment
-
-One codebase deployable to three targets — self-hosted (canonical, unchanged), cloud (managed Postgres + worker queue + centralized keys), and browser (PGlite/IndexedDB + client orchestration + BYOK) — behind a single `DEPLOY_TARGET` switch. Target differences are isolated to three thin adapter seams (DB, agent execution, secrets/keys). Agents, schema, and business logic stay shared. The self-hosted target stays green at every phase; cloud and browser are added on top.
-
-## Phases (v4.0)
-
-- [ ] **Phase 5: DEPLOY_TARGET Foundation** — Config module (TS + Python), env templates, zero-regression self-hosted default (1/3 plans complete)
-- [ ] **Phase 6: Seam Adapters (Self-hosted Reference)** — DB adapter, agent-execution adapter, getLlmCredentials() resolver, all non-breaking
-- [ ] **Phase 7: Stateless Agent Refactor** — Pure-function agents, DB I/O lifted to boundary, pytest-verified behavior preserved
-- [ ] **Phase 8: Server-side Scraper Endpoint** — Stateless Jina scraper route, injection defence, structured errors
-- [ ] **Phase 9: Cloud Target** — Managed Postgres, worker-queue execution adapter, centralized key resolver
-- [ ] **Phase 10a: Browser Target — DB & Assets** — PGlite/IndexedDB adapter, schema bootstrap, Vite asset config, persistence opt-in
-- [ ] **Phase 10b: Browser Target — Orchestration & BYOK** — Client orchestration loop, BYOK key flow, frontend data-layer swap
-
-## Phase Details (v4.0)
-
-### Phase 5: DEPLOY_TARGET Foundation
-**Goal**: A single `DEPLOY_TARGET` config module (TypeScript + Python) exists, `.env` templates are committed for all three targets, and with no `DEPLOY_TARGET` set the runtime behaves identically to the existing self-hosted version with no regressions.
-**Depends on**: Phase 4 (v3.0 complete)
-**Requirements**: CONFIG-01, CONFIG-02, CONFIG-03
-**Success Criteria** (what must be TRUE):
-  1. `import { config } from './config'` (TS) and `from config import config` (Python) expose a resolved settings object whose values match `DEPLOY_TARGET` — defaulting to `self-hosted`
-  2. `.env.self-hosted`, `.env.cloud`, and `.env.browser` template files are committed to the repo; no real secrets are present in any committed file
-  3. Starting the API and running the Python pipeline with no `DEPLOY_TARGET` env var (or `DEPLOY_TARGET=self-hosted`) produces zero behavioral change — all existing vitest and pytest suites pass green
-**Plans**: 3 plans
-Plans:
-- [x] 05-01-PLAN.md — TS config module (frozen singleton, fail-fast validation) + shared parity fixture
-- [ ] 05-02-PLAN.md — Python config module (frozen dataclass singleton) + cross-language parity tests
-- [x] 05-03-PLAN.md — Per-target .env templates (placeholders only) + gitignore + README
-
-### Phase 6: Seam Adapters (Self-hosted Reference Implementation)
-**Goal**: Three named adapter seams exist in the codebase — DB, agent-execution, and secrets/keys — each with a self-hosted implementation that is functionally identical to the code it replaces, so no behavior changes while the insertion points are established.
-**Depends on**: Phase 5
-**Requirements**: SEAM-01, SEAM-02, SEAM-03, SEAM-04
-**Success Criteria** (what must be TRUE):
-  1. A `createDb()` adapter function returns today's `pg` pool when `DEPLOY_TARGET=self-hosted`; all DB-touching routes work identically after the refactor
-  2. The single pipeline-spawn site in `api/src/job-submission.ts` is wrapped by an agent-execution adapter; self-hosted impl still runs `uv run python run_agents.py` as a detached subprocess
-  3. `getLlmCredentials()` is the sole source of LLM keys in the agent layer; self-hosted impl reads from local env / `tokens.json` exactly as before
-  4. Full vitest and pytest suites pass green after all three seams land — no observable self-hosted behavior change
-**Plans**: TBD
-
-### Phase 7: Stateless Agent Refactor
-**Goal**: Each Python agent is a pure function — all inputs arrive as arguments, all outputs are returned values, and no agent module opens a database connection directly — making agents runnable under subprocess, queue worker, or browser loop without modification.
-**Depends on**: Phase 6
-**Requirements**: AGENT-01, AGENT-02, AGENT-03
-**Success Criteria** (what must be TRUE):
-  1. Each agent (`job_scout`, `resume_tailor`, `quality_analyst`, `confirmation`) is callable as a pure function with no side-effects beyond returning its output; the orchestrator/boundary supplies all DB interactions
-  2. No agent module contains an `import psycopg2` statement or opens a database connection directly
-  3. Existing pytest suite (behavior tests: QA scoring formula, tailoring rules, injection defence) passes green with refactored agents; the self-hosted orchestrator drives them end-to-end without regression
-**Plans**: TBD
-
-### Phase 8: Server-side Scraper Endpoint
-**Goal**: A stateless server endpoint handles Jina scraping so the browser target is never blocked by CORS, scraper behavior is shared by all targets, and malformed or adversarial inputs are rejected with structured error responses.
-**Depends on**: Phase 6
-**Requirements**: SCRAPE-01, SCRAPE-02
-**Success Criteria** (what must be TRUE):
-  1. `POST /scrape` (or equivalent) accepts a job URL, fetches the page via Jina Reader server-side, and returns cleaned JD Markdown — usable by self-hosted, cloud, and browser targets alike
-  2. The endpoint applies injection defence: content containing embedded instructions is returned as plain text without being followed; a pipeline_events log entry is written when suspicious content is detected
-  3. Invalid URL, Jina fetch failure, and empty-content responses each return a distinct structured error (with a meaningful HTTP status code and problem JSON), verified by vitest tests
-**Plans**: TBD
-
-### Phase 9: Cloud Target
-**Goal**: Setting `DEPLOY_TARGET=cloud` switches the three seams to their cloud implementations — managed Postgres connection, worker-queue pipeline enqueue, and centralized key resolver — without touching self-hosted or browser paths.
-**Depends on**: Phase 6, Phase 7, Phase 8
-**Requirements**: CLOUD-01, CLOUD-02, CLOUD-03
-**Success Criteria** (what must be TRUE):
-  1. Under `DEPLOY_TARGET=cloud`, the DB adapter resolves and uses a managed Postgres connection string; the self-hosted adapter path is untouched and still passes its tests when mocked with `DEPLOY_TARGET=self-hosted`
-  2. Under `DEPLOY_TARGET=cloud`, submitting a job enqueues to the configured worker queue instead of spawning a local subprocess; the queue message contains all context needed for the worker to run the stateless agents
-  3. Under `DEPLOY_TARGET=cloud`, `getLlmCredentials()` retrieves centralized LLM keys from a secret store; no per-user billing or quota logic is implemented (explicitly deferred)
-**Plans**: TBD
-
-### Phase 10a: Browser Target — DB and Assets
-**Goal**: Under `DEPLOY_TARGET=browser`, the DB adapter provides a PGlite/IndexedDB client with the full schema bootstrapped exactly once (surviving reload), and Vite is configured so the PGlite WASM bundle loads correctly and the user can opt into durable persistence.
-**Depends on**: Phase 6, Phase 7, Phase 8
-**Requirements**: BROWSER-01, BROWSER-02
-**Success Criteria** (what must be TRUE):
-  1. Under `DEPLOY_TARGET=browser`, `createDb()` returns a PGlite client backed by `idb://`; on first load, `database/schema.sql` (with all 4 triggers, JSONB, allowed_transitions) bootstraps unmodified; a page reload does not re-run bootstrap and does not lose data
-  2. The Vite config includes `optimizeDeps.exclude: ['@electric-sql/pglite']` and correct static `.wasm`/`.data` asset serving; the PGlite FS bundle loads uncorrupted in a fresh browser tab
-  3. `navigator.storage.persist()` is called on a real user gesture (not at module load time); the browser grants or denies it and the outcome is surfaced to the user
-**Plans**: TBD
-**UI hint**: yes
-
-### Phase 10b: Browser Target — Orchestration and BYOK
-**Goal**: A client-side orchestration loop drives the stateless agent endpoints in the correct sequence (with QA retry), the user's OpenRouter key is stored encrypted in local PGlite and used per-call without touching the server, and the frontend reads and writes entirely from local PGlite with a clear data-locality disclosure.
-**Depends on**: Phase 10a
-**Requirements**: BROWSER-03, BROWSER-04, BROWSER-05
-**Success Criteria** (what must be TRUE):
-  1. In the browser target, submitting a job URL triggers a client-side loop that calls scout → tailor → QA → confirm endpoints in sequence, drives the QA→tailor retry up to `max_iterations`, and uses PGlite LISTEN/NOTIFY to propagate status transitions validated against `allowed_transitions`
-  2. The user can enter an OpenRouter API key that is stored AES-encrypted in local PGlite; it is sent per-call in the request header and is never stored or logged server-side
-  3. All frontend reads (job list, job detail, pipeline events, resume versions, profile) and writes (submit job, update profile) target local PGlite; a persistent UI disclosure states that data is browser-local, per-device, and lost on clear-site-data
-**Plans**: TBD
-**UI hint**: yes
-
----
-
-## Traceability (v4.0)
-
-| REQ-ID | Phase |
-|--------|-------|
-| CONFIG-01, CONFIG-02, CONFIG-03 | Phase 5 |
-| SEAM-01, SEAM-02, SEAM-03, SEAM-04 | Phase 6 |
-| AGENT-01, AGENT-02, AGENT-03 | Phase 7 |
-| SCRAPE-01, SCRAPE-02 | Phase 8 |
-| CLOUD-01, CLOUD-02, CLOUD-03 | Phase 9 |
-| BROWSER-01, BROWSER-02 | Phase 10a |
-| BROWSER-03, BROWSER-04, BROWSER-05 | Phase 10b |
-
-**Coverage:** 20/20 v4.0 requirements mapped — 100% ✓
-
-## Progress Table (v4.0)
+**Execution Order:**
+Phases execute in roadmap order: 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 5. DEPLOY_TARGET Foundation | 2/3 | In progress | 2026-05-30 |
-| 6. Seam Adapters (Self-hosted Ref) | 0/? | Not started | - |
-| 7. Stateless Agent Refactor | 0/? | Not started | - |
-| 8. Server-side Scraper Endpoint | 0/? | Not started | - |
-| 9. Cloud Target | 0/? | Not started | - |
-| 10a. Browser Target — DB & Assets | 0/? | Not started | - |
-| 10b. Browser Target — Orchestration & BYOK | 0/? | Not started | - |
+| 11. Architecture, Compatibility, and Migration Plan | 4/4 | Complete | 2026-06-24 |
+| 12. Career Vault Schema and API Foundation | 2/2 | Complete   | 2026-07-02 |
+| 13. Vault Import/Review UI and Tailoring Integration | 0/? | Not started | - |
+| 14. Application Tracker MVP | 0/? | Not started | - |
+| 15. Missing Achievement Discovery | 0/? | Not started | - |
+| 16. Recruiter CRM Lite and Reminders | 0/? | Not started | - |
+| 17. Explainable Job-Match Score | 0/? | Not started | - |
+| 18. Automatic Application Submission | 6/6 | Complete | 2026-06-30 |
+
+### Phase 18: Automatic Application Submission
+
+**Goal:** After QA approval, automatically submit the tailored resume to the job's ATS portal (Greenhouse, Lever, Ashby) using their public APIs when the user passes --auto-apply. Submission is opt-in per job; the system never submits without explicit user request.
+**Requirements**: ATS-DETECT-01, DB-SCHEMA-01, ANSWER-ENGINE-01, RESUME-RENDER-01, GREENHOUSE-01, LEVER-01, ASHBY-01, PORTAL-ROUTER-01, ORCHESTRATOR-WIRING-01
+**Depends on:** Phase 17
+**Plans:** 6 plans
+
+Plans:
+**Wave 1**
+
+- [x] 18-01-PLAN.md — DB migration 010 (application_submissions table, ATS columns, new transitions) + detect_ats() utility
+- [x] 18-02-PLAN.md — AnswerEngine (stock answers + LLM fallback) + render_resume_to_pdf() utility + answers.yaml template
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 18-03-PLAN.md — Greenhouse Board API portal agent (TDD, silent-accept detection)
+- [x] 18-04-PLAN.md — Lever Postings API portal agent (TDD, 429 retry with Retry-After)
+- [x] 18-05-PLAN.md — Ashby applicationForm.submit portal agent (TDD, HTTP 200 != success)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 18-06-PLAN.md — Portal router + orchestrator wiring + --auto-apply CLI flag
