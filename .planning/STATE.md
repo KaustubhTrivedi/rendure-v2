@@ -73,7 +73,7 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-06-30T23:21:35Z
-Stopped at: Phase 18 executed and verified
-Resume file: .planning/phases/18-automatic-application-submission/18-CONTEXT.md
-Next action: review/ship Phase 18 or return to the v4.1 roadmap sequence at Phase 12.
+Last session: 2026-07-02
+Stopped at: Session resumed. Pushed agent prompt improvements (feat/career-vault). Proceeding to finish incomplete plan 12-02.
+Resume file: .planning/phases/12-career-vault-schema-and-api-foundation/12-02-PLAN.md
+Next action: Execute plan 12-02 — implement /vault Hono router + mount, turn vault.test.ts green.
