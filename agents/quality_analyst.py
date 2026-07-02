@@ -17,6 +17,7 @@ import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
 
+from utils.audit_redaction import build_redacted_prompt_payload
 from utils.llm import extract_json, load_llm
 from utils.toon import parse_toon_table, toon_list
 
@@ -78,6 +79,27 @@ def _insert_qa_review(
         ),
     )
     return str(cur.fetchone()[0])
+
+
+def _write_prompt_trace(cur: Any, job_id: str, model: str, iteration_number: int, version_id: str, prompt: str) -> None:
+    cur.execute(
+        """
+        INSERT INTO pipeline_events
+            (job_id, event_type, agent_name, model_used, detail, payload)
+        VALUES (%s, 'llm_prompt_trace', 'quality_analyst', %s, %s, %s::jsonb)
+        """,
+        (
+            job_id,
+            model,
+            f"QA evaluation prompt sent to LLM (iteration {iteration_number})",
+            json.dumps(build_redacted_prompt_payload(
+                "quality_analyst_to_llm",
+                prompt,
+                iteration=iteration_number,
+                version_id=version_id,
+            )),
+        ),
+    )
 
 
 EVALUATION_PROMPT = """\
@@ -149,6 +171,7 @@ Compare JOB_REQUIREMENTS vs RESUME_SIGNALS:
 - partial_matches: areas where the resume hints at capability but could be clearer
 - missing_keywords: important keywords from the JD not present in the resume
 - weak_signals: areas where the resume undersells relevant experience
+- misplaced_signals: strong achievements or key technologies buried in old roles or the wrong section (e.g. a headline metric hidden in the last bullet of the oldest job)
 
 STEP 4 — ATS OPTIMIZATION CHECK
 Evaluate ATS readiness:
@@ -156,6 +179,7 @@ Evaluate ATS readiness:
 - missing_ats_keywords: keywords from the JD that should appear somewhere
 - keyword_placement_issues: keywords that exist but are buried or poorly placed
 - keyword_stuffing_risk: unnatural repetition of keywords
+- section_visibility_risk: required keywords or the strongest signals placed below the fold or in low-visibility sections where a 3-5 second recruiter/ATS scan would miss them
 
 STEP 5 — RECRUITER SCANNABILITY TEST
 Simulate a recruiter scanning in 3–5 seconds:
@@ -174,6 +198,15 @@ STEP 7 — SKILL SECTION ANALYSIS
 - missing_skill_categories: important categories missing from skills section
 - skills_not_prioritized: relevant skills that should appear earlier
 - keyword_bridging_opportunities: technologies that could safely appear under "Familiar With" or "Exposure To"
+- bridging_integrity: verify every skill under "Familiar With" / "Exposure To" has genuine adjacent evidence elsewhere in the resume; flag any bridged or claimed skill that lacks supporting experience
+
+STEP 7B — OVERSTATEMENT / TRUTHFULNESS DIAGNOSTIC
+Assess whether the resume overstates the candidate's background relative to the base resume facts and hard constraints. Identify:
+- inflated_scope: ownership or leadership claims larger than the verified role (e.g. "led team" for an individual contributor)
+- unsupported_metrics: quantified results that do not trace to a verifiable achievement in the base resume
+- tech_overreach: a technology asserted as core/primary in the summary or an experience bullet when the resume only supports familiarity
+- misattributed_impact: a metric or outcome credited to the wrong employer or project
+Record every finding in raw_feedback. Any finding that also breaches the hard constraints MUST be emitted as a HIGH severity gap with category "constraint_violation". This diagnostic does NOT add a scoring dimension.
 
 STEP 8 — SCORING
 Based on the full analysis above, score across EXACTLY 6 dimensions:
@@ -346,6 +379,7 @@ CONSTRAINT_VIOLATIONS_CHECK = """\
 Cross-reference the resume against the CANDIDATE HARD CONSTRAINTS above.
 Flag as HIGH severity gap (category: "constraint_violation") any claim in the resume that:
   * Claims a skill explicitly listed as [DO NOT CLAIM] in the hard constraints
+  * Lists a skill marked [DO NOT CLAIM] under any label, including "Familiar With", "Exposure To", or "Interests" — bridging language does not exempt it
   * Inflates total years of experience beyond what is stated in the constraints
   * Uses a job title (Lead, Senior, Manager, Principal) not matching the verified title
   * Attributes a metric to the wrong employer (e.g., PPLWork metric used in an Openspace bullet)
@@ -531,25 +565,7 @@ def run(
 
         # ── Prompt trace ──────────────────────────────────────────────────────
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO pipeline_events
-                    (job_id, event_type, agent_name, model_used, detail, payload)
-                VALUES (%s, 'llm_prompt_trace', 'quality_analyst', %s, %s, %s::jsonb)
-                """,
-                (
-                    job_id,
-                    model,
-                    f"QA evaluation prompt sent to LLM (iteration {iteration_number})",
-                    json.dumps({
-                        "direction": "quality_analyst→llm",
-                        "iteration": iteration_number,
-                        "version_id": version_id,
-                        "prompt_length": len(prompt),
-                        "prompt": prompt,
-                    }),
-                ),
-            )
+            _write_prompt_trace(cur, job_id, model, iteration_number, version_id, prompt)
         conn.commit()
 
         raw_response = llm.invoke(prompt)

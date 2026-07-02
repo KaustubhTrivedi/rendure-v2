@@ -37,6 +37,12 @@
       "sourceType": "github",
       "computedHash": "c50aa77f7aa7196a0b1e6a436d064319b20316fbad8d9f18769b470bfae0340b"
     },
+    "scrapling-official": {
+      "source": "d4vinci/scrapling",
+      "sourceType": "github",
+      "skillPath": "agent-skill/Scrapling-Skill/SKILL.md",
+      "computedHash": "0f5dd2718895f5205fbb997291e8c434ee11dde7128d25eb0c64c760d45131cd"
+    },
     "tdd": {
       "source": "mattpocock/skills",
       "sourceType": "github",

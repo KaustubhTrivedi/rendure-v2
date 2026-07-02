@@ -10,6 +10,7 @@ import jobs from './routes/jobs.js'
 import profile from './routes/profile.js'
 import telegram from './routes/telegram.js'
 import discovery from './routes/discovery.js'
+import vault from './routes/vault.js'
 import { codexAuth, codexAuthPublic, isCodexOAuthEnabled } from './routes/codex-auth.js'
 import { logger, loggerMiddleware } from './middleware/logger.js'
 import { apiKeyMiddleware, assertApiKeyConfigured } from './middleware/apiKey.js'
@@ -46,6 +47,7 @@ app.use('*', loggerMiddleware())
 app.use('/profile/*', apiKeyMiddleware())
 app.use('/jobs/*', apiKeyMiddleware())
 app.use('/discovery/*', apiKeyMiddleware())
+app.use('/vault/*', apiKeyMiddleware())
 
 // Codex OAuth callback must be public (no API key) — OpenAI redirects here.
 // Gated behind CODEX_OAUTH_ENABLED (default ON for self-hosting; hosted build opts out).
@@ -60,6 +62,7 @@ app.get('/', (c) => {
 app.route('/telegram', telegram)
 app.route('/profile', profile)
 app.route('/discovery', discovery)
+app.route('/vault', vault)
 if (isCodexOAuthEnabled()) {
   app.route('/profile/codex-auth', codexAuth)
 }

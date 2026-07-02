@@ -1,93 +1,80 @@
 ---
 gsd_state_version: 1.0
-milestone: v4.0
-milestone_name: Config-driven Multi-target Deployment
-status: ready_to_plan
-stopped_at: Phase 6 context gathered — ready to plan
-last_updated: 2026-06-02T18:00:00.000Z
-last_activity: 2026-06-02 -- Phase 06 context gathered
+milestone: v4.1
+milestone_name: Job Search Operating System v1
+current_phase: 12
+current_phase_name: career-vault-schema-and-api-foundation
+status: complete
+stopped_at: Phase 12 complete — Career Vault API foundation implemented and verified
+last_updated: "2026-07-02T11:20:00Z"
+last_activity: 2026-07-02
+last_activity_desc: Phase 12 executed and verified
 progress:
-  total_phases: 7
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 14
+  total_phases: 8
+  completed_phases: 3
+  total_plans: 12
+  completed_plans: 12
+  percent: 38
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-30)
+See: .planning/PROJECT.md (updated 2026-06-22)
 
 **Core value:** A job seeker pastes a URL and gets back a tailored, high-quality resume without touching a single line of their resume themselves.
-**Current focus:** Phase 6 — seam adapters (self hosted reference implementation)
+**Current focus:** Phase 12 — career-vault-schema-and-api-foundation
 
 ## Current Position
 
-Phase: 6
-Plan: Not started
-Status: Context gathered — ready to plan
-Next: /gsd-plan-phase 6
-Last activity: 2026-06-02
+Phase: 12 (career-vault-schema-and-api-foundation) — COMPLETE
+Plan: 2 of 2
+Status: Verified complete
+Last activity: 2026-07-02 — Phase 12 executed and verified
 
-Progress: [######----] 67% (2/3 plans complete in Phase 5)
+Progress: [##########] 100%
 
 ## Performance Metrics
 
-| Phase | Plan | Duration | Tasks | Files | Tests |
-|-------|------|----------|-------|-------|-------|
-| 04-01 | 01 | 4 min | 3 | 3 | 37 |
-| 04-02 | 02 | 12 min | 3 | 2 | 9 |
-| 04-03 | 03 | 2 min | 3 | 4 | 19 |
-| 04-04 | 04 | 9 min | 3 | 4 | 18 |
-| 05-01 | 01 | 2 min | 3 | 3 | 10 |
-| 05-03 | 03 | 3 min | 3 | 5 | — |
+| Phase | Plans Complete | Status |
+|-------|----------------|--------|
+| 11 | 4/4 | Complete |
+| 12 | 2/2 | Complete |
+| 13 | 0/? | Not started |
+| 14 | 0/? | Not started |
+| 15 | 0/? | Not started |
+| 16 | 0/? | Not started |
+| 17 | 0/? | Not started |
+| 18 | 6/6 | Complete |
 
 ## Accumulated Context
 
-### Decisions (v4.0)
+### Decisions
 
-- 2026-05-30: Browser phase split into 10a (DB & Assets) and 10b (Orchestration & BYOK) — the browser target carries 5 requirements that form two distinct delivery boundaries: the storage/asset layer must exist before the orchestration loop can run
-- 2026-05-30: Phase ordering: 5 (config) → 6 (seams) → 7 (agents) + 8 (scraper, parallel-eligible after 6) → 9 (cloud) → 10a → 10b; cloud and browser both depend on seams + stateless agents
-- 2026-05-30: Self-hosted constraint is hard: every phase detail section that touches the self-hosted path includes a green-suite success criterion — it is never "temporarily broken"
-- 2026-05-30: DEPLOY_TARGET config module is dual-language (TS for the Hono API, Python for agents); both must default to `self-hosted` when the env var is absent
-- 2026-05-30: Separate pure resolve() from frozen config singleton — tests import resolve dynamically (vi.resetModules + dynamic await import) to avoid the singleton throwing in test env on missing DATABASE_URL; tests set DATABASE_URL in beforeAll/beforeEach matching app.test.ts pattern
-- 2026-05-30: Deep-freeze (Object.freeze on each nested seam sub-object, not just the top) — shallow freeze leaves db/execution/credentials mutable
-- 2026-05-30: Shared parity fixture anchored at repo-root tests/fixtures/ — read by vitest via fileURLToPath + readFileSync idiom matching existing index.ts pattern
-- 2026-05-30: Per-target env templates (D-08/D-09/D-10): three .env.{target} files committed with placeholder-only secrets (changeme, <generate-with-openssl>); each template lists only its target's actual vars; existing .env.dev.example/.env.production.example unchanged; README documents relationship
+- 2026-06-23: v4.1 phase numbering continues after previous Phase 10b; active roadmap uses Phases 11-17.
+- 2026-06-23: v4.1 roadmap follows the researched delivery order: compatibility guardrails, Career Vault foundation, import/review plus tailoring, application tracker, discovery, CRM, then match scoring.
+- 2026-06-23: Existing URL-to-tailored-resume flow remains load-bearing and must work without Vault setup.
+- 2026-06-23: Trusted Vault evidence requires explicit user approval; AI can create candidates, rank evidence, and draft text only from user-provided sources.
+- 2026-06-23: Application status, application timeline, recruiter reminders, and match assessments are separate from pipeline `jobs.status`, `pipeline_events`, and QA score semantics.
 
-### Decisions (v3.0, still relevant)
+### Roadmap Evolution
 
-- 2026-05-13: Drop Clerk auth — open-source self-hosted, single API key (`RENDURE_API_KEY`)
-- 2026-05-13: Keep Hono/TypeScript backend (`api/`) — FastAPI rebuild dropped
-- 2026-05-13: Single-user mode — one `user_profile` row, no multi-tenant identity
-- 2026-05-13: Add Telegram bot as a first-class client
-- 2026-05-21: Shared job submission helper uses discriminated union result type
-- 2026-05-21: pg notification treated as wake-up only — re-queries canonical rows with parameterized SQL
-- 2026-05-21: Recipient comes only from `user_profile.notify_telegram_chat_id`, never from incoming payloads
-
-### Decisions (carry-over, always relevant)
-
-- Pipeline agents and Postgres schema unchanged — schema runs unmodified in Postgres and PGlite
-- Frontend bootstrap (`frontend/` — Vite + React 19 + React Compiler) — built as part of Phase 10a/10b
-- Deploy target: Docker self-hosted via Dokploy + Traefik
+- Phase 18 added: Automatic Application Submission (Greenhouse, Lever, Ashby portal agents)
+- Phase 18 executed: ATS detection, submission schema, screening answer engine, resume rendering, Greenhouse/Lever/Ashby portal agents, portal router, and `--auto-apply` opt-in wiring.
+- Phase 12 executed: Career Vault schema and API foundation, including source artifacts, profile preferences, entity candidates, provenance, and approval-gated trusted writes.
 
 ### Pending Todos
 
-- Legacy Clerk-based tests and DB migrations from v2.0 should be cleaned up — not a blocker but worth scheduling before Phase 6
+- Legacy Clerk-based tests and DB migrations from v2.0 should be cleaned up when relevant; not a blocker for v4.1 roadmap planning.
 
 ### Blockers/Concerns
 
 None currently.
 
-### Quick Tasks Completed
-
-*(v3.0 history — Phases 1-4 complete. See `.planning/phases/` for summaries.)*
-
 ## Session Continuity
 
-Last session: 2026-05-30T10:22:08.695Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-deploy-target-foundation/05-CONTEXT.md
-Next action: `/gsd-plan-phase 5`
+Last session: 2026-07-02
+Stopped at: Phase 12 complete and verified.
+Resume file: .planning/phases/12-career-vault-schema-and-api-foundation/12-02-SUMMARY.md
+Next action: Plan Phase 13 — Vault Import/Review UI and Tailoring Integration.
