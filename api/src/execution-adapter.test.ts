@@ -63,6 +63,29 @@ describe('runPipeline', () => {
     expect(child.unref).toHaveBeenCalledOnce()
   })
 
+  it('does not pass --auto-apply by default', () => {
+    mockChild()
+    const pool = createPool()
+
+    runPipeline('https://example.com/job', 'job-123', pool, {})
+
+    const args = spawnMock.mock.calls[0][1] as string[]
+    expect(args).not.toContain('--auto-apply')
+  })
+
+  it('appends --auto-apply when the autoApply option is true', () => {
+    mockChild()
+    const pool = createPool()
+
+    runPipeline('https://example.com/job', 'job-123', pool, {}, { autoApply: true })
+
+    expect(spawnMock).toHaveBeenCalledWith(
+      'uv',
+      ['run', 'python', 'run_agents.py', 'https://example.com/job', '--job-id', 'job-123', '--auto-apply'],
+      expect.objectContaining({ detached: true }),
+    )
+  })
+
   it('updates the job and records a pipeline event when the child emits an error', async () => {
     const child = mockChild()
     const pool = createPool()

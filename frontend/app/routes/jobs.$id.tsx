@@ -6,6 +6,11 @@ import type { JobDetail, PipelineEvent } from "~/lib/types";
 import "../styles/job-detail.css";
 
 const STAGE_NAMES = ["Job Scout", "Resume Tailor", "Quality Analyst", "Confirmation"];
+const APPLICATION_STAGE = "Application";
+
+// Statuses that reflect the optional auto-apply submission stage. Only these
+// surface the 5th "Application" stage so non-auto-apply jobs stay 4-stage.
+const APPLICATION_STATUSES = new Set(["submitting", "submitted", "submission_failed"]);
 
 const STAGE_ACTIVE: Record<string, number> = {
   found: 0,
@@ -16,6 +21,18 @@ const STAGE_ACTIVE: Record<string, number> = {
 };
 
 function getStages(status: string) {
+  if (APPLICATION_STATUSES.has(status)) {
+    const stageNames = [...STAGE_NAMES, APPLICATION_STAGE];
+    // First four stages are complete once QA approves and confirmation runs.
+    const appState =
+      status === "submitted" ? "done" : status === "submission_failed" ? "fail" : "active";
+    return stageNames.map((title, i) => ({
+      num: `0${i + 1}`,
+      title,
+      state: i < 4 ? "done" : appState,
+      meta: "",
+    }));
+  }
   if (status === "low_match" || status === "qa_failed") {
     return STAGE_NAMES.map((title, i) => ({
       num: `0${i + 1}`,
@@ -50,6 +67,9 @@ function statusLabel(status: string) {
     low_match: "LOW MATCH",
     approved: "APPROVED",
     error: "ERROR",
+    submitting: "SUBMITTING",
+    submitted: "SUBMITTED",
+    submission_failed: "SUBMISSION FAILED",
   };
   return map[status] ?? status?.toUpperCase() ?? "UNKNOWN";
 }
@@ -60,7 +80,13 @@ function formatTime(iso?: string) {
 }
 
 function isTerminalStatus(status: string) {
-  return status === "approved" || status === "low_match" || status === "error";
+  return (
+    status === "approved" ||
+    status === "low_match" ||
+    status === "error" ||
+    status === "submitted" ||
+    status === "submission_failed"
+  );
 }
 
 export default function JobDetail() {

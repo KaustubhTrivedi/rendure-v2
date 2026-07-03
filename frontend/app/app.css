@@ -367,6 +367,27 @@ body {
   box-shadow: 0 0 0 0 #fff, 0 0 0 3px #000;
 }
 
+.composer .auto-apply-toggle {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: #bbb;
+  cursor: pointer;
+}
+
+.composer .auto-apply-toggle input {
+  width: auto;
+  border: none;
+  border-bottom: none;
+  padding: 0;
+  cursor: pointer;
+  accent-color: var(--yellow);
+}
+
 /* ─── Filters ────────────────────────────────────────────────────────── */
 .filters {
   display: flex;

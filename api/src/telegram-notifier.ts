@@ -59,7 +59,7 @@ export async function notifyTerminalJob(
 
   const telegramJob: TelegramTerminalJob = {
     job_id: jobId,
-    status: row.status as 'approved' | 'low_match' | 'error',
+    status: row.status as TelegramTerminalJob['status'],
     qa_score: row.qa_score,
     company_name: row.company_name,
     role_title: row.role_title,

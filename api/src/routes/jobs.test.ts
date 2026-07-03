@@ -189,6 +189,55 @@ describe('toPipelineEventPayload', () => {
   })
 })
 
+describe('POST /jobs auto_apply handling', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mockChild()
+  })
+
+  async function postJobs(payload: unknown) {
+    return jobs.request('/', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+  }
+
+  it('does not pass --auto-apply when auto_apply is omitted', async () => {
+    query
+      .mockResolvedValueOnce({ rows: [] } as never)
+      .mockResolvedValueOnce({ rows: [{ job_id: 'job-123' }] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never)
+
+    const res = await postJobs({ url: 'https://example.com/job' })
+
+    expect(res.status).toBe(202)
+    const args = spawnMock.mock.calls[0][1] as string[]
+    expect(args).not.toContain('--auto-apply')
+  })
+
+  it('passes --auto-apply when auto_apply is true', async () => {
+    query
+      .mockResolvedValueOnce({ rows: [] } as never)
+      .mockResolvedValueOnce({ rows: [{ job_id: 'job-123' }] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never)
+
+    const res = await postJobs({ url: 'https://example.com/job', auto_apply: true })
+
+    expect(res.status).toBe(202)
+    const args = spawnMock.mock.calls[0][1] as string[]
+    expect(args).toContain('--auto-apply')
+  })
+
+  it('rejects a non-boolean auto_apply with 400 without spawning', async () => {
+    const res = await postJobs({ url: 'https://example.com/job', auto_apply: 'yes' })
+
+    expect(res.status).toBe(400)
+    expect(query).not.toHaveBeenCalled()
+    expect(spawnMock).not.toHaveBeenCalled()
+  })
+})
+
 describe('GET /jobs/:id/events (SSE)', () => {
   beforeAll(() => {
     process.env.RENDURE_API_KEY = 'test-key'

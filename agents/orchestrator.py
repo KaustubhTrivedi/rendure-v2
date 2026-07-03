@@ -816,9 +816,9 @@ def run(
                 )
                 _notify_auto_apply_success(portal_result, event_callback)
             except Exception as e:
-                _handle_agent_error(
-                    conn, job_id, "portal_router", "submitting", str(e), event_callback
-                )
+                # portal_router already set 'submission_failed'; preserve it
+                # rather than forcing the job to a generic 'error' status.
+                _handle_portal_failure(conn, job_id, str(e), event_callback)
                 return
 
     except KeyboardInterrupt:
@@ -906,6 +906,61 @@ def _handle_pipeline_error(
     event_callback: EventCallback = None,
 ) -> None:
     _handle_agent_error(conn, job_id, agent_name, "error", reason, event_callback)
+
+
+def _handle_portal_failure(
+    conn: Any,
+    job_id: str,
+    reason: str,
+    event_callback: EventCallback = None,
+) -> None:
+    """Handle an auto-apply (portal_router) failure.
+
+    The portal_router agent already sets ``jobs.status = 'submission_failed'``
+    and records its own ``agent_error`` event before raising. This handler must
+    therefore preserve that specific status — it must NOT run the generic
+    ``_handle_agent_error`` path, which could transition the job to ``error``
+    (overwriting ``submission_failed``) if such a transition is ever added to
+    ``allowed_transitions``.
+    """
+    try:
+        _log_event(
+            conn,
+            job_id,
+            "application_failed",
+            "portal_router",
+            detail=f"Auto-apply failed: {reason}",
+            metadata={"reason": reason},
+        )
+    except Exception:
+        pass
+
+    company = role = None
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT company_name, role_title FROM jobs WHERE job_id = %s",
+                (job_id,),
+            )
+            job = cur.fetchone() or {}
+            company = job.get("company_name")
+            role = job.get("role_title")
+    except Exception:
+        pass
+
+    _notify(
+        event_callback,
+        f"\n✗ Auto-apply failed\n"
+        f"  Role:   {role or '?'} at {company or '?'}\n"
+        f"  Job ID: {job_id}\n"
+        f"  Reason: {reason}\n\n"
+        f"Your tailored resume is still available. The application was not submitted.",
+        {
+            "event_type": "application_failed",
+            "agent_name": "portal_router",
+            "detail": f"Auto-apply failed: {reason}",
+        },
+    )
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent

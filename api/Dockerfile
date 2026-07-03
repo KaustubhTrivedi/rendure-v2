@@ -30,6 +30,7 @@ COPY agents/ agents/
 COPY utils/ utils/
 COPY resume/ resume/
 COPY run_agents.py ./
+COPY run_discovery.py ./
 
 EXPOSE 3002 1455
 HEALTHCHECK --interval=30s --timeout=5s --retries=5 --start-period=20s \

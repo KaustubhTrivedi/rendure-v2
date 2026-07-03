@@ -82,6 +82,13 @@ def test_nginx_proxy_injects_api_key_header():
     assert 'proxy_set_header X-API-Key "${RENDURE_API_KEY}";' in template
 
 
+def test_api_dockerfile_copies_pipeline_entrypoints():
+    dockerfile = (ROOT / "api" / "Dockerfile").read_text()
+
+    assert "COPY run_agents.py" in dockerfile
+    assert "COPY run_discovery.py" in dockerfile
+
+
 def test_landing_compose_exposes_internal_nginx_port_for_dokploy_domains():
     config = compose_config("docker-compose.landing.yml")
     landing = config["services"]["landing"]

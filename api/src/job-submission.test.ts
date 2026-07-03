@@ -138,6 +138,32 @@ describe('submitJobUrl', () => {
     expect(child.unref).toHaveBeenCalledOnce()
   })
 
+  it('does not pass --auto-apply by default', async () => {
+    mockChild()
+    query
+      .mockResolvedValueOnce({ rows: [] } as never)
+      .mockResolvedValueOnce({ rows: [{ job_id: 'job-123' }] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never)
+
+    await submitJobUrl('https://example.com/job')
+
+    const args = spawnMock.mock.calls[0][1] as string[]
+    expect(args).not.toContain('--auto-apply')
+  })
+
+  it('passes --auto-apply when autoApply option is true', async () => {
+    mockChild()
+    query
+      .mockResolvedValueOnce({ rows: [] } as never)
+      .mockResolvedValueOnce({ rows: [{ job_id: 'job-123' }] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never)
+
+    await submitJobUrl('https://example.com/job', { autoApply: true })
+
+    const args = spawnMock.mock.calls[0][1] as string[]
+    expect(args).toContain('--auto-apply')
+  })
+
   it('returns 409 for duplicate URL without spawning', async () => {
     query.mockResolvedValueOnce({ rows: [{ job_id: 'job-123', status: 'tailoring' }] } as never)
 

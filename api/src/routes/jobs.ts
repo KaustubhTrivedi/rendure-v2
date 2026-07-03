@@ -54,8 +54,13 @@ jobs.post('/', async (c) => {
     return httpError(c, 400, 'bad_request', 'url is required and must be a non-empty string.')
   }
 
+  if (body.auto_apply !== undefined && typeof body.auto_apply !== 'boolean') {
+    return httpError(c, 400, 'bad_request', 'auto_apply must be a boolean.')
+  }
+
   const url = body.url.trim()
-  const result = await submitJobUrl(url)
+  const autoApply = body.auto_apply === true
+  const result = await submitJobUrl(url, { autoApply })
 
   if (result.statusCode === 202 || result.statusCode === 409) {
     return c.json(result.body, result.statusCode as 200)

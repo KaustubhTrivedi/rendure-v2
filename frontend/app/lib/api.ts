@@ -35,10 +35,13 @@ export const api = {
   jobs: {
     list: () => request<Job[]>("/jobs"),
     get: (id: string) => request<JobDetail>(`/jobs/${id}`),
-    submit: (url: string) =>
+    submit: (url: string, options?: { autoApply?: boolean }) =>
       request<Job>("/jobs", {
         method: "POST",
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({
+          url,
+          ...(options?.autoApply ? { auto_apply: true } : {}),
+        }),
       }),
   },
 

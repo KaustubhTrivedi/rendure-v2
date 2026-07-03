@@ -61,7 +61,10 @@ export function statusUrl(jobId: string): string {
  *
  * spawn failures). Unexpected errors (DB connection loss, etc.) propagate normally.
  */
-export async function submitJobUrl(url: string): Promise<JobSubmitResult> {
+export async function submitJobUrl(
+  url: string,
+  options: { autoApply?: boolean } = {},
+): Promise<JobSubmitResult> {
   // 1. Validate URL
   try {
     new URL(url)
@@ -134,7 +137,7 @@ export async function submitJobUrl(url: string): Promise<JobSubmitResult> {
   }
 
   // 5. Dispatch the pipeline through the execution adapter — we don't wait for it to finish
-  runPipeline(url, job_id, pool, pipelineEnv)
+  runPipeline(url, job_id, pool, pipelineEnv, { autoApply: options.autoApply === true })
 
   // Return immediately — pipeline runs in background
   return {

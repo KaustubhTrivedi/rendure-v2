@@ -4,7 +4,7 @@ export const SSE_KEEPALIVE_MS = 30_000
 
 export const SSE_KEEPALIVE_COMMENT = ': keepalive\n\n'
 
-export const TERMINAL_STATUSES = new Set(['approved', 'low_match', 'error'])
+export const TERMINAL_STATUSES = new Set(['approved', 'low_match', 'error', 'submitted', 'submission_failed'])
 
 export function isTerminalStatus(status: string | null | undefined): boolean {
   return status != null && TERMINAL_STATUSES.has(status)
