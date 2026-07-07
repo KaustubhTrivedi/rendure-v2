@@ -10,7 +10,7 @@
 
 export interface TelegramTerminalJob {
   job_id: string
-  status: 'approved' | 'low_match' | 'error'
+  status: 'approved' | 'low_match' | 'error' | 'submitted' | 'submission_failed'
   qa_score: string | number | null
   company_name: string | null
   role_title: string | null
@@ -163,6 +163,32 @@ export function formatTelegramTerminalMessage(job: TelegramTerminalJob): string 
           lines.push(`• ${detail}`)
         }
       }
+      return lines.join('\n')
+    }
+    case 'submitted': {
+      const lines = [`📨 *Status:* Submitted`]
+      const roleParts: string[] = []
+      if (safe.role) roleParts.push(safe.role)
+      if (safe.company) roleParts.push(`@ ${safe.company}`)
+      if (roleParts.length > 0) {
+        lines.push(`*Role:* ${roleParts.join(' ')}`)
+      }
+      lines.push('')
+      lines.push('Your application was submitted to the employer portal after QA approval.')
+      return lines.join('\n')
+    }
+    case 'submission_failed': {
+      const lines = [`❌ *Status:* Submission Failed`]
+      const roleParts: string[] = []
+      if (safe.role) roleParts.push(safe.role)
+      if (safe.company) roleParts.push(`@ ${safe.company}`)
+      if (roleParts.length > 0) {
+        lines.push(`*Role:* ${roleParts.join(' ')}`)
+      }
+      lines.push('')
+      lines.push('Auto-apply could not submit your application. Your tailored resume is still available.')
+      lines.push('')
+      lines.push(`Check status: /jobs/${escapeMarkdownV2(job.job_id)}/status`)
       return lines.join('\n')
     }
     default:

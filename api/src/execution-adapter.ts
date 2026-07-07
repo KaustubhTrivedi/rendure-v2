@@ -27,10 +27,14 @@ export function runPipeline(
   jobId: string,
   pool: pg.Pool,
   pipelineEnv: NodeJS.ProcessEnv,
+  options: { autoApply?: boolean } = {},
 ): void {
+  const args = ['run', 'python', 'run_agents.py', url, '--job-id', jobId]
+  if (options.autoApply) args.push('--auto-apply')
+
   const child = spawn(
     'uv',
-    ['run', 'python', 'run_agents.py', url, '--job-id', jobId],
+    args,
     {
       cwd: pipelineEnv.PROJECT_ROOT ?? PROJECT_ROOT,
       detached: true,

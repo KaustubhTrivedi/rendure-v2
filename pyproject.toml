@@ -25,6 +25,13 @@ dependencies = [
 [tool.uv]
 package = true
 
+[tool.pytest.ini_options]
+# Only collect the unit test suite. This keeps root-level smoke scripts like
+# first_test.py (which performs a live OpenRouter call at import) out of normal
+# pytest runs.
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

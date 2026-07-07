@@ -6,7 +6,10 @@ export type JobStatus =
   | "approved"
   | "qa_failed"
   | "low_match"
-  | "error";
+  | "error"
+  | "submitting"
+  | "submitted"
+  | "submission_failed";
 
 export interface Job {
   job_id: string;

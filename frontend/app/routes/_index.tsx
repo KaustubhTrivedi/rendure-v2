@@ -11,6 +11,9 @@ function getPipelineFromStatus(status: JobStatus): { states: ("done" | "active" 
     case "qa_review": return { states: ["done", "done", "active", "pending"] };
     case "qa_failed": return { states: ["done", "done", "fail", "pending"] };
     case "approved": return { states: ["done", "done", "done", "done"] };
+    case "submitting": return { states: ["done", "done", "done", "done"] };
+    case "submitted": return { states: ["done", "done", "done", "done"] };
+    case "submission_failed": return { states: ["done", "done", "done", "fail"] };
     case "low_match": return { states: ["done", "done", "fail", "pending"] };
     case "error": return { states: ["pending", "pending", "pending", "pending"] };
     default: return { states: ["pending", "pending", "pending", "pending"] };
@@ -24,6 +27,9 @@ function getBadgeInfo(status: JobStatus): { badgeClass: string; badgeLabel: stri
     case "tailoring": return { badgeClass: "tailoring", badgeLabel: "Tailoring" };
     case "qa_review": return { badgeClass: "qa", badgeLabel: "QA Review" };
     case "approved": return { badgeClass: "ok", badgeLabel: "Approved" };
+    case "submitting": return { badgeClass: "qa", badgeLabel: "Submitting" };
+    case "submitted": return { badgeClass: "ok", badgeLabel: "Submitted" };
+    case "submission_failed": return { badgeClass: "err", badgeLabel: "Submission Failed" };
     case "qa_failed": return { badgeClass: "err", badgeLabel: "QA Failed" };
     case "low_match": return { badgeClass: "err", badgeLabel: "Low Match" };
     case "error": return { badgeClass: "err", badgeLabel: "Error" };
@@ -82,6 +88,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState("all");
   const [jobUrl, setJobUrl] = useState("");
+  const [autoApply, setAutoApply] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -121,9 +128,13 @@ export default function Dashboard() {
     setSubmitting(true);
     setSubmitSuccess(null);
     setError(null);
-    api.jobs.submit(jobUrl.trim())
+    api.jobs.submit(jobUrl.trim(), { autoApply })
       .then(() => {
-        setSubmitSuccess("Job submitted successfully");
+        setSubmitSuccess(
+          autoApply
+            ? "Job submitted successfully. Auto-apply will run only after QA approval."
+            : "Job submitted successfully",
+        );
         setJobUrl("");
         return api.jobs.list();
       })
@@ -132,10 +143,10 @@ export default function Dashboard() {
       .finally(() => setSubmitting(false));
   }
 
-  const terminalStates: JobStatus[] = ["approved", "low_match", "error"];
+  const terminalStates: JobStatus[] = ["approved", "low_match", "error", "submitted", "submission_failed"];
   const inProgress = jobs.filter((j) => !terminalStates.includes(j.status)).length;
-  const approvedCount = jobs.filter((j) => j.status === "approved").length;
-  const failedCount = jobs.filter((j) => j.status === "low_match" || j.status === "error").length;
+  const approvedCount = jobs.filter((j) => j.status === "approved" || j.status === "submitted").length;
+  const failedCount = jobs.filter((j) => j.status === "low_match" || j.status === "error" || j.status === "submission_failed").length;
   const scores = jobs.map((j) => j.qa_score).filter((s): s is number => s !== null);
   const avgScore = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(3) : "—";
 
@@ -203,6 +214,14 @@ export default function Dashboard() {
         <button className="go" type="submit" disabled={submitting}>
           {submitting ? "SUBMITTING…" : "ANALYZE →"}
         </button>
+        <label className="auto-apply-toggle">
+          <input
+            type="checkbox"
+            checked={autoApply}
+            onChange={(e) => setAutoApply(e.target.checked)}
+          />
+          Auto-apply after QA approval — submits to the employer (Greenhouse/Lever/Ashby only)
+        </label>
         {submitSuccess && <span className="success-msg">{submitSuccess}</span>}
         {error && <span className="error-msg">{error}</span>}
       </form>
@@ -250,7 +269,8 @@ export default function Dashboard() {
         {!loading && jobs.filter((j) => {
           if (activeFilter === "all") return true;
           if (activeFilter === "active") return !terminalStates.includes(j.status);
-          if (activeFilter === "failed") return j.status === "low_match" || j.status === "error";
+          if (activeFilter === "failed") return j.status === "low_match" || j.status === "error" || j.status === "submission_failed";
+          if (activeFilter === "approved") return j.status === "approved" || j.status === "submitted";
           return j.status === activeFilter;
         }).map((job) => {
           const pipeline = getPipelineFromStatus(job.status);

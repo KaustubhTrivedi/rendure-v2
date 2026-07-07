@@ -49,6 +49,11 @@ describe('pipeline state boundaries', () => {
     expect(sse).toContain("approved', 'low_match', 'error")
   })
 
+  it('treats auto-apply submission outcomes as terminal statuses', () => {
+    expect(sse).toContain('submitted')
+    expect(sse).toContain('submission_failed')
+  })
+
   it('keeps pipeline notify payload to job_id and event_id only', () => {
     expect(notify).toContain("'job_id', NEW.job_id")
     expect(notify).toContain("'event_id', NEW.event_id")
